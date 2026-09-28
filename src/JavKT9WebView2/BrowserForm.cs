@@ -11,26 +11,57 @@ namespace JavKT9WebView2;
 
 public sealed class BrowserForm : Form
 {
-    private readonly WebView2 web = new() { Dock = DockStyle.Fill };
+    private readonly WebView2 web =
+        new() { Dock = DockStyle.Fill };
+
     private readonly string code;
     private readonly string profile;
+    private readonly bool hiddenMode;
+
     private bool captureDone;
     private bool checkingPage;
+    private bool humanWindowShown;
+
+    private DateTime startedAt;
+
+    private const int MaximumRunSeconds = 90;
 
     public BrowserForm(string[] args)
     {
-        code = args.FirstOrDefault(a => !a.StartsWith("--")) ?? "DASS-786";
+        code =
+            args.FirstOrDefault(
+                a => !a.StartsWith("--",
+                    StringComparison.OrdinalIgnoreCase))
+            ?? "DASS-786";
 
-        profile = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "JavKT9",
-            "WebView2");
+        hiddenMode =
+            args.Any(
+                a => a.Equals(
+                    "--hidden",
+                    StringComparison.OrdinalIgnoreCase));
 
-        Text = $"JavKT9 WebView2 Experimental 0.7.2 - {code}";
+        profile =
+            Path.Combine(
+                Environment.GetFolderPath(
+                    Environment.SpecialFolder.LocalApplicationData),
+                "JavKT9",
+                "WebView2");
+
+        Text =
+            $"JavKT9 WebView2 Experimental 0.7.3 - {code}";
+
         Width = 1100;
         Height = 800;
 
+        StartPosition = FormStartPosition.CenterScreen;
+
         Controls.Add(web);
+
+        if (hiddenMode)
+        {
+            ShowInTaskbar = false;
+            Opacity = 0;
+        }
 
         Shown += async (_, _) => await StartAsync();
     }
@@ -39,11 +70,13 @@ public sealed class BrowserForm : Form
     {
         try
         {
+            startedAt = DateTime.Now;
+
             Directory.CreateDirectory(profile);
 
-            Log.Write("========================================");
-            Log.Write("JavKT9 WebView2 0.7.2 starting");
+            Log.Write("JavKT9 WebView2 0.7.3");
             Log.Write($"code={code}");
+            Log.Write($"hiddenMode={hiddenMode}");
             Log.Write($"UserDataFolder={profile}");
 
             var environment =
@@ -56,31 +89,42 @@ public sealed class BrowserForm : Form
             await web.EnsureCoreWebView2Async(environment);
 
             Log.Write("CoreWebView2 initialized");
-            Log.Write($"BrowserVersion={web.CoreWebView2.Environment.BrowserVersionString}");
 
-            web.CoreWebView2.NavigationStarting += (_, e) =>
-            {
-                Log.Write($"NavigationStarting={e.Uri}");
-            };
+            Log.Write(
+                $"BrowserVersion=" +
+                $"{web.CoreWebView2.Environment.BrowserVersionString}");
 
-            web.CoreWebView2.NavigationCompleted += async (_, e) =>
-            {
-                Log.Write(
-                    $"NavigationCompleted success={e.IsSuccess} " +
-                    $"status={e.WebErrorStatus}");
+            web.CoreWebView2.NavigationStarting +=
+                (_, e) =>
+                {
+                    Log.Write(
+                        $"NavigationStarting={e.Uri}");
+                };
 
-                Log.Write($"FinalURL={web.Source}");
+            web.CoreWebView2.NavigationCompleted +=
+                async (_, e) =>
+                {
+                    Log.Write(
+                        $"NavigationCompleted " +
+                        $"success={e.IsSuccess} " +
+                        $"status={e.WebErrorStatus}");
 
-                await InspectPageAsync();
-            };
+                    Log.Write(
+                        $"FinalURL={web.Source}");
 
-            web.CoreWebView2.ProcessFailed += (_, e) =>
-            {
-                Log.Write($"ProcessFailed={e.ProcessFailedKind}");
-            };
+                    await InspectPageAsync();
+                };
+
+            web.CoreWebView2.ProcessFailed +=
+                (_, e) =>
+                {
+                    Log.Write(
+                        $"ProcessFailed={e.ProcessFailedKind}");
+                };
 
             string url =
-                "https://www.javlibrary.com/en/vl_searchbyid.php?keyword=" +
+                "https://www.javlibrary.com/en/" +
+                "vl_searchbyid.php?keyword=" +
                 Uri.EscapeDataString(code);
 
             Log.Write($"Navigate={url}");
@@ -89,153 +133,276 @@ public sealed class BrowserForm : Form
         }
         catch (Exception ex)
         {
-            Log.Write($"START ERROR: {ex}");
-            MessageBox.Show(
-                ex.ToString(),
-                "JavKT9 WebView2 Error",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
+            Fail(
+                20,
+                "START ERROR: " + ex,
+                true);
         }
     }
 
     private async Task InspectPageAsync()
     {
-        if (checkingPage || captureDone || web.CoreWebView2 == null)
+        if (captureDone || checkingPage)
+            return;
+
+        if (web.CoreWebView2 == null)
             return;
 
         checkingPage = true;
 
+        bool needsRecheck = false;
+
         try
         {
-            // JavLibrary/Cloudflare may still be modifying the document
-            // after NavigationCompleted.
-            await Task.Delay(1500);
+            if ((DateTime.Now - startedAt).TotalSeconds >
+                MaximumRunSeconds)
+            {
+                Fail(
+                    30,
+                    "TIMEOUT waiting for JavLibrary.",
+                    true);
 
-            string readyState = await JsStringAsync(
-                "document.readyState");
+                return;
+            }
 
-            string title = await JsStringAsync(
-                "document.title || ''");
+            await Task.Delay(1200);
 
-            string bodyText = await JsStringAsync(
-                "document.body ? document.body.innerText : ''");
+            string readyState =
+                await JsStringAsync(
+                    "document.readyState");
 
-            string currentUrl = web.Source?.ToString() ?? "";
+            string title =
+                await JsStringAsync(
+                    "document.title || ''");
 
-            Log.Write($"document.readyState={readyState}");
+            string bodyText =
+                await JsStringAsync(
+                    "document.body ? " +
+                    "document.body.innerText : ''");
+
+            string currentUrl =
+                web.Source?.ToString() ?? "";
+
+            Log.Write(
+                $"document.readyState={readyState}");
+
             Log.Write($"title={title}");
             Log.Write($"url={currentUrl}");
 
             bool termsDetected =
-                bodyText.Contains("I agree", StringComparison.OrdinalIgnoreCase) &&
-                bodyText.Contains("I do not agree", StringComparison.OrdinalIgnoreCase);
+                bodyText.Contains(
+                    "I agree",
+                    StringComparison.OrdinalIgnoreCase)
+                &&
+                bodyText.Contains(
+                    "I do not agree",
+                    StringComparison.OrdinalIgnoreCase);
 
             bool cloudflareDetected =
-                bodyText.Contains("Verify you are human", StringComparison.OrdinalIgnoreCase) ||
-                bodyText.Contains("Checking your browser", StringComparison.OrdinalIgnoreCase) ||
-                title.Contains("Just a moment", StringComparison.OrdinalIgnoreCase);
+                bodyText.Contains(
+                    "Verify you are human",
+                    StringComparison.OrdinalIgnoreCase)
+                ||
+                bodyText.Contains(
+                    "Checking your browser",
+                    StringComparison.OrdinalIgnoreCase)
+                ||
+                title.Contains(
+                    "Just a moment",
+                    StringComparison.OrdinalIgnoreCase);
 
             bool codeFound =
-                bodyText.Contains(code, StringComparison.OrdinalIgnoreCase);
+                bodyText.Contains(
+                    code,
+                    StringComparison.OrdinalIgnoreCase)
+                ||
+                title.Contains(
+                    code,
+                    StringComparison.OrdinalIgnoreCase);
 
-            Log.Write($"termsDetected={termsDetected}");
-            Log.Write($"cloudflareDetected={cloudflareDetected}");
-            Log.Write($"codeFound={codeFound}");
+            Log.Write(
+                $"termsDetected={termsDetected}");
+
+            Log.Write(
+                $"cloudflareDetected={cloudflareDetected}");
+
+            Log.Write(
+                $"codeFound={codeFound}");
 
             if (termsDetected)
             {
                 Log.Write(
-                    "Human interaction required: JavLibrary terms/age confirmation.");
+                    "JavLibrary terms/age confirmation detected.");
 
-                // Do NOT capture the consent overlay as the final page.
-                // Keep WebView2 visible so the user can press I agree.
-                await ScheduleRecheckAsync();
+                ShowForHumanInteraction(
+                    "JavLibrary requires confirmation.");
+
+                needsRecheck = true;
                 return;
             }
 
             if (cloudflareDetected)
             {
                 Log.Write(
-                    "Human interaction required: Cloudflare verification.");
+                    "Cloudflare human verification detected.");
 
-                await ScheduleRecheckAsync();
+                ShowForHumanInteraction(
+                    "Cloudflare verification required.");
+
+                needsRecheck = true;
                 return;
             }
 
             if (!codeFound)
             {
                 Log.Write(
-                    "Target code not found yet; waiting before capture.");
+                    "Target code not found yet.");
 
-                await ScheduleRecheckAsync();
+                needsRecheck = true;
                 return;
             }
 
-            // Give dynamically generated fields a little more time.
-            await Task.Delay(1000);
+            if (!readyState.Equals(
+                    "complete",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                Log.Write(
+                    "Document is not complete yet.");
 
-            string html = await JsStringAsync(
-                "document.documentElement.outerHTML");
+                needsRecheck = true;
+                return;
+            }
+
+            await Task.Delay(800);
+
+            string html =
+                await JsStringAsync(
+                    "document.documentElement.outerHTML");
 
             if (string.IsNullOrWhiteSpace(html))
             {
-                Log.Write("HTML capture returned empty content.");
-                await ScheduleRecheckAsync();
+                Log.Write(
+                    "HTML capture returned empty content.");
+
+                needsRecheck = true;
                 return;
             }
 
-            string captureDir = Path.Combine(
-                Environment.GetFolderPath(
-                    Environment.SpecialFolder.LocalApplicationData),
-                "JavKT9",
-                "WebView2Capture");
+            string captureDir =
+                Path.Combine(
+                    Environment.GetFolderPath(
+                        Environment.SpecialFolder
+                            .LocalApplicationData),
+                    "JavKT9",
+                    "WebView2Capture");
 
             Directory.CreateDirectory(captureDir);
 
-            string safeCode = string.Concat(
-                code.Select(c =>
-                    Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            string safeCode =
+                string.Concat(
+                    code.Select(
+                        c =>
+                            Path.GetInvalidFileNameChars()
+                                .Contains(c)
+                            ? '_'
+                            : c));
 
-            string output = Path.Combine(
-                captureDir,
-                $"{safeCode}.html");
+            string output =
+                Path.Combine(
+                    captureDir,
+                    $"{safeCode}.html");
 
-            await File.WriteAllTextAsync(output, html);
+            await File.WriteAllTextAsync(
+                output,
+                html);
 
             captureDone = true;
 
             Log.Write($"HTML saved={output}");
             Log.Write($"HTML length={html.Length}");
             Log.Write("CAPTURE SUCCESS");
+
+            Environment.ExitCode = 0;
+
+            await Task.Delay(300);
+
+            Close();
         }
         catch (Exception ex)
         {
-            Log.Write($"INSPECT ERROR: {ex}");
-            await ScheduleRecheckAsync();
+            Log.Write(
+                $"INSPECT ERROR: {ex}");
+
+            needsRecheck = true;
         }
         finally
         {
             checkingPage = false;
+
+            if (needsRecheck && !captureDone)
+            {
+                ScheduleRecheck();
+            }
         }
     }
 
-    private async Task ScheduleRecheckAsync()
+    private void ScheduleRecheck()
     {
-        await Task.Delay(2000);
+        _ = Task.Run(
+            async () =>
+            {
+                await Task.Delay(2000);
 
-        BeginInvoke(new Action(async () =>
-        {
-            await InspectPageAsync();
-        }));
+                if (IsDisposed || captureDone)
+                    return;
+
+                try
+                {
+                    BeginInvoke(
+                        new Action(
+                            async () =>
+                            {
+                                await InspectPageAsync();
+                            }));
+                }
+                catch
+                {
+                }
+            });
     }
 
-    private async Task<string> JsStringAsync(string expression)
+    private void ShowForHumanInteraction(
+        string reason)
     {
-        string json = await web.CoreWebView2.ExecuteScriptAsync(expression);
+        if (humanWindowShown)
+            return;
+
+        humanWindowShown = true;
+
+        Log.Write(
+            $"Showing WebView2 window: {reason}");
+
+        ShowInTaskbar = true;
+        Opacity = 1;
+
+        WindowState = FormWindowState.Normal;
+
+        Activate();
+        BringToFront();
+    }
+
+    private async Task<string> JsStringAsync(
+        string expression)
+    {
+        string json =
+            await web.CoreWebView2
+                .ExecuteScriptAsync(expression);
 
         try
         {
-            return JsonSerializer.Deserialize<string>(json) ?? "";
+            return
+                JsonSerializer.Deserialize<string>(json)
+                ?? "";
         }
         catch
         {
@@ -243,34 +410,30 @@ public sealed class BrowserForm : Form
         }
     }
 
-    private static class Log
+    private void Fail(
+        int exitCode,
+        string message,
+        bool showMessage)
     {
-        private static readonly string DirectoryPath =
-            Path.Combine(
-                Environment.GetFolderPath(
-                    Environment.SpecialFolder.LocalApplicationData),
-                "JavKT9");
+        Log.Write(message);
 
-        private static readonly string FilePath =
-            Path.Combine(
-                DirectoryPath,
-                "JavKT9-webview2.log");
+        Environment.ExitCode = exitCode;
 
-        public static void Write(string message)
+        if (showMessage && !hiddenMode)
         {
-            try
-            {
-                Directory.CreateDirectory(DirectoryPath);
+            MessageBox.Show(
+                message,
+                "JavKT9 WebView2 Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
 
-                File.AppendAllText(
-                    FilePath,
-                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}" +
-                    Environment.NewLine);
-            }
-            catch
-            {
-                // Logging must never stop the browser.
-            }
+        try
+        {
+            Close();
+        }
+        catch
+        {
         }
     }
 }
