@@ -1,0 +1,42 @@
+name: Build JavKT9 WebView2 Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore src/JavKT9WebView2/JavKT9WebView2.csproj
+
+      - name: Build JavKT9 WebView2
+        run: >
+          dotnet publish src/JavKT9WebView2/JavKT9WebView2.csproj
+          -c Release
+          -r win-x64
+          --self-contained false
+          -o publish
+
+      - name: Show generated files
+        shell: pwsh
+        run: Get-ChildItem -Path publish -Recurse
+
+      - name: Upload JavKT9 build
+        uses: actions/upload-artifact@v4
+        with:
+          name: JavKT9-0.7.1-WebView2-Experimental-win-x64
+          path: publish/
+          if-no-files-found: error
