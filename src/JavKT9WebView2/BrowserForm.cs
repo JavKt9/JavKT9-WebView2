@@ -21,6 +21,7 @@ public sealed class BrowserForm : Form
     private bool captureDone;
     private bool checkingPage;
     private bool humanWindowShown;
+    private bool exactResultNavigationAttempted;
 
     private DateTime startedAt;
 
@@ -48,7 +49,7 @@ public sealed class BrowserForm : Form
                 "WebView2");
 
         Text =
-            $"JavKT9 WebView2 Experimental 0.7.3 - {code}";
+            $"JavKT9 WebView2 Experimental 0.7.23 - {code}";
 
         Width = 1100;
         Height = 800;
@@ -74,7 +75,7 @@ public sealed class BrowserForm : Form
 
             Directory.CreateDirectory(profile);
 
-            Log.Write("JavKT9 WebView2 0.7.3");
+            Log.Write("JavKT9 WebView2 0.7.23");
             Log.Write($"code={code}");
             Log.Write($"hiddenMode={hiddenMode}");
             Log.Write($"UserDataFolder={profile}");
@@ -209,6 +210,10 @@ public sealed class BrowserForm : Form
                 ||
                 title.Contains(
                     "Just a moment",
+                    StringComparison.OrdinalIgnoreCase)
+                ||
+                title.Contains(
+                    "Un momento",
                     StringComparison.OrdinalIgnoreCase);
 
             bool codeFound =
@@ -260,6 +265,60 @@ public sealed class BrowserForm : Form
 
                 needsRecheck = true;
                 return;
+            }
+
+            // Some older JavLibrary IDs do not redirect directly from
+            // vl_searchbyid.php.  If we are still on a search/results page,
+            // follow the first link whose visible text contains the exact ID.
+            // Modern direct redirects are untouched.
+            bool looksLikeFinalVideoPage =
+                currentUrl.IndexOf(
+                    "vl_searchbyid.php",
+                    StringComparison.OrdinalIgnoreCase) < 0
+                &&
+                (
+                    bodyText.Contains(
+                        "Release Date:",
+                        StringComparison.OrdinalIgnoreCase)
+                    ||
+                    bodyText.Contains(
+                        "Length:",
+                        StringComparison.OrdinalIgnoreCase)
+                    ||
+                    bodyText.Contains(
+                        "Genre(s):",
+                        StringComparison.OrdinalIgnoreCase)
+                );
+
+            if (!looksLikeFinalVideoPage &&
+                !exactResultNavigationAttempted)
+            {
+                exactResultNavigationAttempted = true;
+
+                string jsCode =
+                    JsonSerializer.Serialize(code);
+
+                string href =
+                    await JsStringAsync(
+                        "(() => {" +
+                        " const target = " + jsCode + ".toUpperCase();" +
+                        " const links = Array.from(document.querySelectorAll('a[href]'));" +
+                        " const hit = links.find(a => ((a.innerText || a.textContent || '').trim().toUpperCase()).includes(target));" +
+                        " return hit ? hit.href : '';" +
+                        "})()");
+
+                if (!string.IsNullOrWhiteSpace(href))
+                {
+                    Log.Write(
+                        $"Exact result fallback navigate={href}");
+
+                    web.Source = new Uri(href);
+
+                    return;
+                }
+
+                Log.Write(
+                    "Exact result fallback: no matching link found.");
             }
 
             if (!readyState.Equals(
