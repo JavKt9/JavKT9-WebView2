@@ -1,5 +1,5 @@
 #define MyAppName "JavKT9"
-#define MyAppVersion "0.7.36"
+#define MyAppVersion "0.7.37"
 #define MyAppPublisher "kt9 / GCstar GPL"
 #define MyAppExeName "JavKT9.exe"
 
@@ -14,7 +14,7 @@ UninstallDisplayName=JavKT9
 UninstallDisplayIcon={app}\JavKT9.ico
 SetupIconFile=JavKT9.ico
 OutputDir=..\output
-OutputBaseFilename=JavKT9-Setup-0.7.36
+OutputBaseFilename=JavKT9-Setup-0.7.37
 Compression=lzma2/max
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
@@ -24,11 +24,11 @@ WizardStyle=modern
 CloseApplications=no
 RestartApplications=no
 DisableProgramGroupPage=yes
-VersionInfoVersion=0.7.36.0
+VersionInfoVersion=0.7.37.0
 VersionInfoCompany=kt9
 VersionInfoDescription=JavKT9 Setup
 VersionInfoProductName=JavKT9
-VersionInfoProductVersion=0.7.36
+VersionInfoProductVersion=0.7.37
 LicenseFile=LICENSE.txt
 
 [Files]
