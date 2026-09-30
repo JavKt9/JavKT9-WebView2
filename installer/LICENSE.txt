@@ -1,0 +1,9 @@
+JavKT9 / GCJav
+Modificaciones GCJav © 2026 kt9
+
+JavKT9 deriva de GCstar y conserva su atribución original.
+GCstar y las modificaciones distribuidas bajo sus términos aplicables se proporcionan
+bajo la GNU General Public License (GPL).
+
+Este instalador no elimina automáticamente las colecciones del usuario ni el perfil
+WebView2 almacenado en %LOCALAPPDATA%\JavKT9.
