@@ -1,4 +1,4 @@
-name: Build JavKT9 Windows Setup
+name: Build JavKT9 Windows Setup 0.7.36
 
 on:
   workflow_dispatch:
@@ -53,19 +53,19 @@ jobs:
         shell: pwsh
         run: |
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "installer/JavKT9.iss"
-          if (!(Test-Path "output/JavKT9-Setup-0.7.35.exe")) { throw "No se generó Setup.exe" }
+          if (!(Test-Path "output/JavKT9-Setup-0.7.36.exe")) { throw "No se generó Setup.exe" }
 
       - name: SHA-256
         shell: pwsh
         run: |
-          Get-FileHash "output/JavKT9-Setup-0.7.35.exe" -Algorithm SHA256 |
+          Get-FileHash "output/JavKT9-Setup-0.7.36.exe" -Algorithm SHA256 |
             Format-List | Out-File "output/SHA256.txt"
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JavKT9-Setup-0.7.35
+          name: JavKT9-Setup-0.7.36
           path: |
-            output/JavKT9-Setup-0.7.35.exe
+            output/JavKT9-Setup-0.7.36.exe
             output/SHA256.txt
           if-no-files-found: error
