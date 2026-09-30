@@ -21,7 +21,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 WizardStyle=modern
-CloseApplications=yes
+CloseApplications=no
 RestartApplications=no
 DisableProgramGroupPage=yes
 VersionInfoVersion=0.7.36.0
@@ -32,6 +32,7 @@ VersionInfoProductVersion=0.7.36
 LicenseFile=LICENSE.txt
 
 [Files]
+Source: "Stop-JavKT9.ps1"; Flags: dontcopy
 Source: "Payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "JavKT9.ico"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -50,21 +51,27 @@ Type: files; Name: "{app}\INSTALAR_EXTENSION.txt"
 ; Intencionalmente NO se elimina %LOCALAPPDATA%\JavKT9 ni colecciones del usuario.
 
 [Code]
-procedure KillImage(ImageName: String);
-var ResultCode: Integer;
-begin
-  Exec(ExpandConstant('{cmd}'),
-    '/D /C taskkill /F /T /IM "' + ImageName + '" >nul 2>&1 & exit /b 0',
-    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-end;
-
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+  ScriptPath: String;
 begin
-  KillImage('JavKT9.exe');
-  KillImage('gcstar.exe');
-  KillImage('JavKT9WebView2.exe');
-  KillImage('perl.exe');
-  KillImage('wperl.exe');
-  Sleep(2500);
+  { Close only processes belonging to the experimental installation. }
+  ExtractTemporaryFile('Stop-JavKT9.ps1');
+  ScriptPath := ExpandConstant('{tmp}\Stop-JavKT9.ps1');
+  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath +
+    '" -InstallDir "' + ExpandConstant('{app}') + '"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    Result := 'No se pudo comprobar el cierre de JavKT9. Cierre JavKT9 y vuelva a intentar.';
+    Exit;
+  end;
+  if ResultCode <> 0 then
+  begin
+    Result := 'Hay procesos de JavKT9 que no pudieron cerrarse. Cierre JavKT9 e inténtelo otra vez. No se modificó GCJav.';
+    Exit;
+  end;
+  Sleep(1500);
   Result := '';
 end;
