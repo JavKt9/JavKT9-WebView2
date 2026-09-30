@@ -1,5 +1,5 @@
 #define MyAppName "JavKT9"
-#define MyAppVersion "0.7.35"
+#define MyAppVersion "0.7.36"
 #define MyAppPublisher "kt9 / GCstar GPL"
 #define MyAppExeName "JavKT9.exe"
 
@@ -14,7 +14,7 @@ UninstallDisplayName=JavKT9
 UninstallDisplayIcon={app}\JavKT9.ico
 SetupIconFile=JavKT9.ico
 OutputDir=..\output
-OutputBaseFilename=JavKT9-Setup-0.7.35
+OutputBaseFilename=JavKT9-Setup-0.7.36
 Compression=lzma2/max
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
@@ -24,11 +24,11 @@ WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
 DisableProgramGroupPage=yes
-VersionInfoVersion=0.7.35.0
+VersionInfoVersion=0.7.36.0
 VersionInfoCompany=kt9
 VersionInfoDescription=JavKT9 Setup
 VersionInfoProductName=JavKT9
-VersionInfoProductVersion=0.7.35
+VersionInfoProductVersion=0.7.36
 LicenseFile=LICENSE.txt
 
 [Files]
@@ -50,15 +50,21 @@ Type: files; Name: "{app}\INSTALAR_EXTENSION.txt"
 ; Intencionalmente NO se elimina %LOCALAPPDATA%\JavKT9 ni colecciones del usuario.
 
 [Code]
-function PrepareToInstall(var NeedsRestart: Boolean): String;
-var
-  ResultCode: Integer;
+procedure KillImage(ImageName: String);
+var ResultCode: Integer;
 begin
   Exec(ExpandConstant('{cmd}'),
-    '/C taskkill /F /T /IM JavKT9.exe >nul 2>&1 & ' +
-    'taskkill /F /T /IM gcstar.exe >nul 2>&1 & ' +
-    'taskkill /F /T /IM JavKT9WebView2.exe >nul 2>&1 & ' +
-    'taskkill /F /T /IM perl.exe >nul 2>&1 & exit /b 0',
+    '/D /C taskkill /F /T /IM "' + ImageName + '" >nul 2>&1 & exit /b 0',
     '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  KillImage('JavKT9.exe');
+  KillImage('gcstar.exe');
+  KillImage('JavKT9WebView2.exe');
+  KillImage('perl.exe');
+  KillImage('wperl.exe');
+  Sleep(2500);
   Result := '';
 end;
