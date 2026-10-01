@@ -1,0 +1,97 @@
+name: Build JavKT9 Windows Setup 0.7.38
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag de la Release que contiene JAVkt9-0.7.38-Payload-Experimental.zip"
+        required: true
+        default: "v0.7.38"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download validated 0.7.38 payload
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+
+          gh release download "${{ inputs.release_tag }}" `
+            --pattern "JAVkt9-0.7.38-Payload-Experimental.zip" `
+            --dir build
+
+          Expand-Archive `
+            "build/JAVkt9-0.7.38-Payload-Experimental.zip" `
+            "build/package" -Force
+
+          $payload = "build/package/Payload"
+
+          if (!(Test-Path "$payload/JavKT9.exe")) {
+            throw "No se encontro Payload/JavKT9.exe"
+          }
+
+          if (!(Test-Path "$payload/bin/WebView2Host/JavKT9WebView2.exe")) {
+            throw "Falta WebView2Host"
+          }
+
+          if (Test-Path "$payload/BrowserExtension") {
+            throw "BrowserExtension no debe estar presente"
+          }
+
+          if (Test-Path "installer/Payload") {
+            Remove-Item "installer/Payload" -Recurse -Force
+          }
+
+          Copy-Item $payload "installer/Payload" -Recurse -Force
+
+      - name: Verify WebView2 bridge configuration
+        shell: pwsh
+        run: |
+          $conf = Get-Content "installer/Payload/lib/gcstar/GCPlugins/GCfilms/GCJavLibrary.conf" -Raw
+
+          if ($conf -notmatch "port=53118") {
+            throw "Puerto experimental incorrecto"
+          }
+
+          if ($conf -notmatch "open_browser=0") {
+            throw "Configuracion WebView2 incorrecta"
+          }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile Setup.exe
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "installer/JavKT9.iss"
+
+          if (!(Test-Path "output/JavKT9-Setup-0.7.38.exe")) {
+            throw "No se genero JavKT9-Setup-0.7.38.exe"
+          }
+
+      - name: SHA-256
+        shell: pwsh
+        run: |
+          Get-FileHash "output/JavKT9-Setup-0.7.38.exe" -Algorithm SHA256 |
+            Format-List |
+            Out-File "output/SHA256.txt"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JavKT9-Setup-0.7.38
+          path: |
+            output/JavKT9-Setup-0.7.38.exe
+            output/SHA256.txt
+          if-no-files-found: error
