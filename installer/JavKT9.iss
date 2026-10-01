@@ -1,5 +1,5 @@
-#define MyAppName "JavKT9"
-#define MyAppVersion "0.7.37"
+#define MyAppName "JAVkt9"
+#define MyAppVersion "0.8.0 Beta 1"
 #define MyAppPublisher "kt9 / GCstar GPL"
 #define MyAppExeName "JavKT9.exe"
 
@@ -14,7 +14,7 @@ UninstallDisplayName=JavKT9
 UninstallDisplayIcon={app}\JavKT9.ico
 SetupIconFile=JavKT9.ico
 OutputDir=..\output
-OutputBaseFilename=JavKT9-Setup-0.7.38
+OutputBaseFilename=JAVkt9-Setup-0.8.0-Beta1
 Compression=lzma2/max
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
@@ -24,11 +24,11 @@ WizardStyle=modern
 CloseApplications=no
 RestartApplications=no
 DisableProgramGroupPage=yes
-VersionInfoVersion=0.7.37.0
+VersionInfoVersion=0.8.0.0
 VersionInfoCompany=kt9
-VersionInfoDescription=JavKT9 Setup
-VersionInfoProductName=JavKT9
-VersionInfoProductVersion=0.7.37
+VersionInfoDescription=JAVkt9 Setup
+VersionInfoProductName=JAVkt9
+VersionInfoProductVersion=0.8.0.0
 LicenseFile=LICENSE.txt
 
 [Files]
@@ -41,7 +41,7 @@ Name: "{autoprograms}\JavKT9"; Filename: "{app}\JavKT9.exe"; WorkingDir: "{app}"
 Name: "{autodesktop}\JavKT9"; Filename: "{app}\JavKT9.exe"; WorkingDir: "{app}"; IconFilename: "{app}\JavKT9.ico"
 
 [Run]
-Filename: "{app}\JavKT9.exe"; Description: "Abrir JavKT9"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\JavKT9.exe"; Description: "Abrir JAVkt9"; Flags: nowait postinstall skipifsilent
 
 [InstallDelete]
 Type: filesandordirs; Name: "{app}\BrowserExtension"
