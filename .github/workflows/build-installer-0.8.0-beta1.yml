@@ -1,10 +1,11 @@
+
 name: Build JAVkt9 Windows Setup 0.8.0 Beta 1
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Tag de la Release que contiene JAVkt9-0.8.0-Beta1-Payload.zip"
+        description: "Tag de la Release que contiene JAVkt9-0.8.0-Beta1-Payload-Manual-Nuevo.zip"
         required: true
         default: "v0.8.0-beta1"
 
@@ -25,10 +26,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path build | Out-Null
           gh release download "${{ inputs.release_tag }}" `
-            --pattern "JAVkt9-0.8.0-Beta1-Payload.zip" `
+            --pattern "JAVkt9-0.8.0-Beta1-Payload-Manual-Nuevo.zip" `
             --dir build
           Expand-Archive `
-            "build/JAVkt9-0.8.0-Beta1-Payload.zip" `
+            "build/JAVkt9-0.8.0-Beta1-Payload-Manual-Nuevo.zip" `
             "build/package" -Force
 
           $payload = "build/package/Payload"
