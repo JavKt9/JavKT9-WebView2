@@ -1,0 +1,43 @@
+name: Build JAVkt9 0.8.1 Experimental (separate installation)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download frozen 0.8.0 Beta 1 payload
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          gh release download "v0.8.0-beta1" --pattern "JAVkt9-0.8.0-Beta1-Payload-Manual-Nuevo.zip" --dir build
+          Expand-Archive "build/JAVkt9-0.8.0-Beta1-Payload-Manual-Nuevo.zip" "build/base" -Force
+          if (!(Test-Path "build/base/Payload/JavKT9.exe")) { throw "Base incompleta" }
+          if (!(Test-Path "build/base/Payload/bin/WebView2Host/JavKT9WebView2.exe")) { throw "Falta host WebView2" }
+          Copy-Item "build/base/Payload" "installer-081/Payload" -Recurse -Force
+      - name: Overlay experimental code
+        shell: pwsh
+        run: |
+          Copy-Item "experimental-081/Payload/*" "installer-081/Payload/" -Recurse -Force
+          $conf = Get-Content "installer-081/Payload/lib/gcstar/GCPlugins/GCfilms/GCJavLibrary.conf" -Raw
+          if ($conf -notmatch "port=53118" -or $conf -notmatch "open_browser=0") { throw "Configuracion WebView2 inesperada" }
+          if (!(Test-Path "installer-081/Payload/lib/gcstar/GCJavPersonFavoritesDialog.pm")) { throw "Falta dialogo" }
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: Compile independent setup
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe" "installer-081/JavKT9.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Fallo compilacion" }
+          if (!(Test-Path "output-081/JAVkt9-Setup-0.8.1-Experimental.exe")) { throw "Falta instalador" }
+          Get-FileHash "output-081/JAVkt9-Setup-0.8.1-Experimental.exe" -Algorithm SHA256 | Format-List | Out-File "output-081/SHA256.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JAVkt9-Setup-0.8.1-Experimental
+          path: output-081/*
+          if-no-files-found: error
