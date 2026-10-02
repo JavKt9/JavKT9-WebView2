@@ -1,0 +1,10 @@
+JAVkt9 0.8.0 Beta 1
+Modificaciones JAVkt9 © 2026 kt9
+
+JAVkt9 deriva de GCstar y conserva la atribución del proyecto original.
+GCstar se distribuye bajo la GNU General Public License v2.0.
+El texto completo de la licencia se incluye en el repositorio como LICENSE.
+
+Este instalador no está diseñado para eliminar automáticamente las colecciones del usuario ni el perfil WebView2 almacenado en %LOCALAPPDATA%\JavKT9.
+
+Este software se proporciona sin garantía, en los términos de la GNU GPL v2.0.
