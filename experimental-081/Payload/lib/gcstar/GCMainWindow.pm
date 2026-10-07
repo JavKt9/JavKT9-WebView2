@@ -4242,7 +4242,27 @@ $@");
             require GCJavPersonFavorites;
             require GCJavPersonFavoritesDialog;
             my $favorites = GCJavPersonFavorites->new();
-            GCJavPersonFavoritesDialog->show($self, $favorites);
+            # Obtain the selected record from the same filtered list used by
+            # the left-hand list (not from the panel widget, which has no getAsHash).
+            my $film;
+            if ($self->{items} && $self->{itemsView})
+            {
+                my $indexes = $self->{itemsView}->getCurrentItems;
+                my $records = $self->{items}->getItemsListFiltered;
+                if (ref($indexes) eq 'ARRAY' && @$indexes &&
+                    ref($records) eq 'ARRAY')
+                {
+                    my $idx = $indexes->[0];
+                    $film = $records->[$idx]
+                        if defined($idx) && $idx =~ /^\d+$/ && $idx < @$records;
+                }
+            }
+            $film = undef unless ref($film) eq 'HASH';
+            # No filter: GCData returns the complete local collection.
+            my $all_films = $self->{items}
+                ? $self->{items}->getItemsListFiltered()
+                : [];
+            GCJavPersonFavoritesDialog->show($self, $favorites, $film, $all_films);
             1;
         } or do {
             my $error = $@ || 'Error desconocido';
