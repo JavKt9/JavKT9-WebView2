@@ -25,7 +25,17 @@ jobs:
           Copy-Item "experimental-081/Payload/*" "installer-081/Payload/" -Recurse -Force
           $conf = Get-Content "installer-081/Payload/lib/gcstar/GCPlugins/GCfilms/GCJavLibrary.conf" -Raw
           if ($conf -notmatch "port=53118" -or $conf -notmatch "open_browser=0") { throw "Configuracion WebView2 inesperada" }
-          if (!(Test-Path "installer-081/Payload/lib/gcstar/GCJavPersonFavoritesDialog.pm")) { throw "Falta dialogo" }
+          $required = @(
+            "GCMainWindow.pm",
+            "GCPanel.pm",
+            "GCExportImport.pm",
+            "GCJavPersonFavorites.pm",
+            "GCJavPersonFavoritesAdapter.pm",
+            "GCJavPersonFavoritesDialog.pm"
+          )
+          foreach ($file in $required) {
+            if (!(Test-Path "installer-081/Payload/lib/gcstar/$file")) { throw "Falta modulo consolidado: $file" }
+          }
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y
