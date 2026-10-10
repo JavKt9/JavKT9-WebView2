@@ -1,0 +1,91 @@
+name: Importar fuentes Perl RC1 en rama privada
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fuentes-rc1-auditoria
+    paths:
+      - .github/workflows/importar-fuentes-rc1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: importar-fuentes-rc1-auditoria
+  cancel-in-progress: false
+
+jobs:
+  importar:
+    if: github.ref == 'refs/heads/fuentes-rc1-auditoria'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Descargar rama de auditoria
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Descargar exclusivamente el asset RC1 privado
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/octet-stream" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/assets/623451801" \
+            --output "$RUNNER_TEMP/JAVkt9_RC1.zip"
+          echo "08fb8ef765e01909225245768d36be7797f4770a6a5d8eb7198d3f6195aadac4  $RUNNER_TEMP/JAVkt9_RC1.zip" | sha256sum -c -
+
+      - name: Importar solamente fuentes Perl, retirando claves heredadas
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/importar_fuentes_rc1.py "$RUNNER_TEMP/JAVkt9_RC1.zip" .
+
+      - name: Revisar secretos sin mostrarlos en registros
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/gitleaks.tar.gz"
+          curl --fail --location --silent --show-error --retry 3 \
+            --output "$archive" \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $archive" | sha256sum -c --status
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
+          chmod +x "$RUNNER_TEMP/gitleaks"
+          if ! "$RUNNER_TEMP/gitleaks" dir --no-banner --redact=100 \
+            --report-format=json --report-path="$RUNNER_TEMP/fuentes-rc1.json" src/perl \
+            >"$RUNNER_TEMP/gitleaks_salida.txt" 2>&1; then
+            echo "BLOQUEADO: el escaneo de secretos fallo o encontro coincidencias. No se subieron fuentes."
+            exit 1
+          fi
+          echo "Analisis automatizado de secretos: sin coincidencias detectadas."
+
+      - name: Registrar incorporacion y subir solo a rama de auditoria
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "fuentes-rc1-auditoria"
+          cat > docs/ESTADO_IMPORTACION_AUTOMATICA.md <<'EOF'
+          # Importacion de fuentes Perl RC1
+
+          El workflow `importar-fuentes-rc1.yml` importo los archivos Perl y configuraciones de la RC1 tras verificar su SHA-256 y pasar un escaneo automatizado de secretos. Cuatro claves heredadas fueron retiradas de los archivos destinados a GitHub.
+
+          El codigo fue importado a la rama privada `fuentes-rc1-auditoria`, sin modificar `main`, ejecutables ni instalaciones de Windows.
+
+          **No publicar aun:** siguen pendientes licencias, datos privados y fuentes originales de los ejecutables `JavKT9.exe` y `GCJavBridgeLauncher.exe`. El escaneo automatizado no garantiza seguridad ni legalidad.
+          EOF
+          git add -- src/perl docs/ESTADO_IMPORTACION_AUTOMATICA.md
+          count="$(git diff --cached --name-only -- src/perl | wc -l | tr -d ' ')"
+          if [ "$count" -ne 1114 ]; then
+            echo "BLOQUEADO: cantidad inesperada de archivos modificados: $count (esperados 1114)"
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "sources: importar 1115 fuentes Perl RC1 verificadas, con claves retiradas"
+          git push origin HEAD:fuentes-rc1-auditoria
