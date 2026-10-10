@@ -52,6 +52,8 @@ class PortableTests(unittest.TestCase):
                 for name in portable.REDACT:
                     self.assertEqual(z.read(prefix + "lib/gcstar/" + name), b'my $apiKey = "";')
                 self.assertIn(prefix + "MANIFIESTO_SHA256.txt", names)
+                self.assertIn(prefix + "JavKT9-Fuentes.cmd", names)
+                self.assertIn(b"--source-mode", z.read(prefix + "JavKT9-Fuentes.cmd"))
 
 
 if __name__ == "__main__":
