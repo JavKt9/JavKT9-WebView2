@@ -19,8 +19,8 @@ func TestSetEnvCaseInsensitive(t *testing.T) {
 
 func TestCheckRuntimeRejectsIncompleteDistribution(t *testing.T) {
 	root := t.TempDir()
-	err := checkRuntime(root)
-	if err == nil || !strings.Contains(err.Error(), "gcstar.exe") { t.Fatalf("expected missing exe: %v", err) }
+	err := checkRuntime(root, false)
+	if err == nil || !strings.Contains(err.Error(), "wperl.exe") { t.Fatalf("expected missing exe: %v", err) }
 }
 
 func TestCheckRuntimeCompleteStructure(t *testing.T) {
@@ -36,7 +36,7 @@ func TestCheckRuntimeCompleteStructure(t *testing.T) {
 			if err := os.WriteFile(full, []byte("test"), 0644); err != nil { t.Fatal(err) }
 		} else if err := os.MkdirAll(full, 0755); err != nil { t.Fatal(err) }
 	}
-	if err := checkRuntime(root); err != nil { t.Fatal(err) }
+	if err := checkRuntime(root, false); err != nil { t.Fatal(err) }
 }
 
 func TestLaunchDoesNotTouchUserProfilesOnMissingRuntime(t *testing.T) {
@@ -46,5 +46,12 @@ func TestLaunchDoesNotTouchUserProfilesOnMissingRuntime(t *testing.T) {
 	if err := launch(root, app, local, []string{"PATH=original"}, nil); err == nil { t.Fatal("expected failure") }
 	for _, path := range []string{app, local} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) { t.Fatalf("profile unexpectedly created: %s", path) }
+	}
+}
+
+func TestSourceModeRequiresPerlScriptNotPAR(t *testing.T) {
+	root := t.TempDir()
+	if err := checkRuntime(root, true); err == nil {
+		t.Fatal("expected missing source dependencies")
 	}
 }

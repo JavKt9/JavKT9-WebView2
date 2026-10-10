@@ -39,16 +39,24 @@ func run(args []string) error {
 		return fmt.Errorf("localizar lanzador: %w", err)
 	}
 	root := filepath.Dir(exe)
-	return launch(root, os.Getenv("APPDATA"), os.Getenv("LOCALAPPDATA"), os.Environ(), args)
+	sourceMode := len(args) > 0 && args[0] == "--source-mode"
+	if sourceMode {
+		args = args[1:]
+	}
+	return launchWithMode(root, os.Getenv("APPDATA"), os.Getenv("LOCALAPPDATA"), os.Environ(), args, sourceMode)
 }
 
 // launch starts GCstar using the same GTK runtime layout as the RC1, but
 // redirects APPDATA and LOCALAPPDATA only in the child process.
 func launch(root, appData, localAppData string, env []string, args []string) error {
+	return launchWithMode(root, appData, localAppData, env, args, false)
+}
+
+func launchWithMode(root, appData, localAppData string, env []string, args []string, sourceMode bool) error {
 	if appData == "" || localAppData == "" {
 		return errors.New("faltan APPDATA o LOCALAPPDATA; no se inicia para evitar perfiles compartidos")
 	}
-	if err := checkRuntime(root); err != nil {
+	if err := checkRuntime(root, sourceMode); err != nil {
 		return err
 	}
 	if bridgeIsRunning(bridgeAddress) {
@@ -70,7 +78,12 @@ func launch(root, appData, localAppData string, env []string, args []string) err
 	env = setEnv(env, "GSETTINGS_SCHEMA_DIR", filepath.Join(usr, "lib", "schema"))
 	env = setEnv(env, "LANG", "ES")
 
-	cmd := exec.Command(filepath.Join(bin, "gcstar.exe"), args...)
+	var cmd *exec.Cmd
+	if sourceMode {
+		cmd = exec.Command(filepath.Join(bin, "wperl.exe"), append([]string{filepath.Join(bin, "gcstar")}, args...)...)
+	} else {
+		cmd = exec.Command(filepath.Join(bin, "gcstar.exe"), args...)
+	}
 	cmd.Dir = bin
 	cmd.Env = env
 	if err := cmd.Start(); err != nil {
@@ -84,9 +97,8 @@ func launch(root, appData, localAppData string, env []string, args []string) err
 	return nil
 }
 
-func checkRuntime(root string) error {
+func checkRuntime(root string, sourceMode bool) error {
 	required := []string{
-		filepath.Join("bin", "gcstar.exe"),
 		filepath.Join("bin", "wperl.exe"),
 		filepath.Join("usr", "bin"),
 		filepath.Join("usr", "lib"),
@@ -94,6 +106,11 @@ func checkRuntime(root string) error {
 		filepath.Join("usr", "lib", "schema"),
 		filepath.Join("lib", "gcstar", "GCPlugins", "GCfilms", "GCJavLibraryBridge.pl"),
 		filepath.Join("bin", "WebView2Host", "JavKT9WebView2.exe"),
+	}
+	if sourceMode {
+		required = append(required, filepath.Join("bin", "gcstar"))
+	} else {
+		required = append(required, filepath.Join("bin", "gcstar.exe"))
 	}
 	for _, rel := range required {
 		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
