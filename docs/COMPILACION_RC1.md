@@ -44,6 +44,16 @@ Los recursos `payload/share/gcstar/` (348 archivos) y las dependencias `payload/
 
 ## 4. Instaladores
 
+**Aclaración importante:** el ZIP original de la RC1 **sí contiene scripts PowerShell de instalación**, distintos del instalador Inno Setup histórico:
+
+- `Instalar_JAVkt9_RC1_Publica.ps1` y su lanzador `.cmd`.
+- `Desinstalar_JAVkt9_RC1_Publica.ps1` y su lanzador `.cmd`.
+- `payload/Iniciar_JAVkt9_RC1_Publica.ps1` y `.cmd`.
+- `payload/Diagnosticar_JAVkt9_RC1_Publica.ps1` y `.cmd`.
+- `manifest.json` original de **6.213** archivos con SHA-256, usado por esos scripts para comprobar el paquete.
+
+El instalador PowerShell de la RC1 declara destino independiente `%ProgramFiles%\\JavKT9-081-RC1-Publica` y rechaza sobrescribir una instalación ya existente. Los scripts se inspeccionaron **sin ejecutarlos**. Todavía no están incorporados al repositorio como fuentes de referencia; se conservan en el ZIP original. Su existencia no resuelve la ausencia de los fuentes Go ni constituye una compilación completa.
+
 `installer/JavKT9.iss` contiene `MyAppVersion "0.8.0 Beta 1"`, `DefaultDirName={autopf}\\JavKT9` y borra componentes de extensión en `{app}`. Los workflows históricos construyen instaladores a partir de ZIP de releases, **no** desde fuentes completos.
 
 **Prohibido utilizar esos scripts para instalar RC1 sobre Beta 1.** Antes de crear un instalador RC1 independiente, hace falta una receta auditada, ruta de destino distinta, pruebas de desinstalación y confirmación explícita.
