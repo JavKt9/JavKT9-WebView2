@@ -1,0 +1,46 @@
+name: Verificar integridad fuentes RC1
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fuentes-rc1-auditoria
+    paths:
+      - .github/workflows/verificar-integridad-fuentes-rc1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verificar:
+    if: github.ref == 'refs/heads/fuentes-rc1-auditoria'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout fuentes
+        uses: actions/checkout@v4
+      - name: Comprobar manifiesto y cuatro redacciones
+        run: python3 tools/verificar_manifest_rc1.py
+      - name: Registrar verificacion en la rama privada
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "fuentes-rc1-auditoria"
+          cat > docs/VERIFICACION_INTEGRIDAD_RC1.md <<EOF
+          # Verificacion automatica de fuentes Perl RC1
+
+          **RESULTADO: CORRECTO** (GitHub Actions).
+
+          - Archivos verificados: **1115**, contra `manifiestos/fuentes-perl-rc1-git.tsv`.
+          - Los hashes Git de los archivos coinciden con el manifiesto.
+          - Cuatro claves API heredadas permanecen vacias.
+          - Commit fuente verificado: `${GITHUB_SHA}`.
+          - Proceso: `.github/workflows/verificar-integridad-fuentes-rc1.yml`.
+
+          Esto **no** valida la compilacion de los ejecutables, las licencias, el historial completo ni la seguridad general. El repositorio debe permanecer privado.
+          EOF
+          git add -- docs/VERIFICACION_INTEGRIDAD_RC1.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "audit: registrar verificacion de 1115 fuentes RC1"
+          git push origin HEAD:fuentes-rc1-auditoria
