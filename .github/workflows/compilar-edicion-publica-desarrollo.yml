@@ -8,6 +8,8 @@ on:
     paths:
       - src/public-launcher/**
       - src/public-webview2/**
+      - tools/armar_portable_publica_desarrollo.py
+      - tools/test_armar_portable_publica_desarrollo.py
       - .github/workflows/compilar-edicion-publica-desarrollo.yml
 
 permissions:
@@ -111,6 +113,9 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/releases/assets/623451801" \
             --output "$RUNNER_TEMP/JAVkt9_RC1.zip"
           echo "08fb8ef765e01909225245768d36be7797f4770a6a5d8eb7198d3f6195aadac4  $RUNNER_TEMP/JAVkt9_RC1.zip" | sha256sum -c -
+      - name: Verificar exclusion de lanzadores antiguos y claves
+        shell: bash
+        run: python3 -m unittest discover -s tools -p 'test_armar_portable_publica_desarrollo.py' -v
       - name: Armar ZIP portatil de desarrollo (sin instalador)
         shell: bash
         run: |
