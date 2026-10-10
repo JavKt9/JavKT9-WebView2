@@ -1,0 +1,47 @@
+name: Verificar compilacion WebView2 RC1 (sin instalador)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fuentes-rc1-auditoria
+    paths:
+      - .github/workflows/verificar-compilacion-webview2-rc1.yml
+
+permissions:
+  contents: read
+
+jobs:
+  compilar-host:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Descargar fuentes de la rama de auditoria
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Instalar .NET SDK 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restaurar dependencias del host WebView2
+        shell: pwsh
+        run: dotnet restore "src/JavKT9WebView2/JavKT9WebView2.csproj" -r win-x64
+
+      - name: Compilar host Windows sin instalar ni ejecutar
+        shell: pwsh
+        run: |
+          dotnet publish "src/JavKT9WebView2/JavKT9WebView2.csproj" `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --no-restore `
+            --output "$env:RUNNER_TEMP/JavKT9WebView2-verificacion"
+          if ($LASTEXITCODE -ne 0) { throw "Fallo la compilacion WebView2" }
+          $exe = Join-Path $env:RUNNER_TEMP "JavKT9WebView2-verificacion/JavKT9WebView2.exe"
+          if (!(Test-Path -LiteralPath $exe)) { throw "No se genero el EXE del host" }
+          $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
+          Write-Output "Compilacion correcta. SHA-256 del host construido: $hash"
+          Write-Output "No se ha probado la captura de peliculas ni se ha construido un instalador."
