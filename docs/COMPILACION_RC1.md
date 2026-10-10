@@ -29,12 +29,14 @@ Ambos scripts son distintos:
 
 No hay receta confirmada de PAR::Packer ni inventario verificado de sus dependencias. No sustituir el `gcstar.exe` funcional por un paquete reconstruido especulativamente.
 
+La inspección de los ejecutables originales con `go version -m` confirmó que **`JavKT9.exe` y `GCJavBridgeLauncher.exe` fueron compilados con Go 1.23.2** para Windows/amd64, sin CGO y con `-trimpath=true`. Véase [LANZADORES_GO_RC1.md](LANZADORES_GO_RC1.md). No se encontraron archivos `.go` de esos lanzadores entre los nombres de archivos de 36 ZIP examinados.
+
 ## 3. Componentes que bloquean una compilación completa
 
 | Binario RC1 | Fuente actual | Verificación |
 | --- | --- | --- |
-| `payload/JavKT9.exe` | Proyecto original ausente | **Bloqueado** |
-| `payload/bin/GCJavBridgeLauncher.exe` | Proyecto original ausente | **Bloqueado** |
+| `payload/JavKT9.exe` | Fuentes **Go 1.23.2** originales ausentes | **Bloqueado** |
+| `payload/bin/GCJavBridgeLauncher.exe` | Fuentes **Go 1.23.2** originales ausentes | **Bloqueado** |
 | `payload/bin/gcstar.exe` | Script interno recuperado, receta PAR ausente | **Bloqueado** |
 | `payload/bin/WebView2Host/JavKT9WebView2.exe` | Proyecto C# presente | Compilación CI por verificar; equivalencia RC1 no comprobada |
 
