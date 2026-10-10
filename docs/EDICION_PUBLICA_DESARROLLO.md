@@ -19,6 +19,14 @@ El lanzador:
 
 El plugin `GCJavLibrary.pm` ya inicia `GCJavLibraryBridge.pl` con `wperl.exe`. Por ello **no se necesita incluir el antiguo `GCJavBridgeLauncher.exe`** en la futura edición pública, siempre que las pruebas de integración lo confirmen.
 
+## Host WebView2 de la edición pública (copia separada)
+
+`src/public-webview2/` contiene una **copia separada** del proyecto C# del repositorio. Los originales de `src/JavKT9WebView2/` **no fueron modificados**.
+
+Esta variante cambia únicamente la resolución de la carpeta de datos locales para que el host use la misma `LOCALAPPDATA` aislada que el Bridge Perl recibe del lanzador Go. Sin este ajuste, .NET puede consultar la carpeta especial de Windows e ignorar la variable de entorno, provocando que la captura HTML termine en otra carpeta. Si se ejecuta el host por separado, elige igualmente un perfil de desarrollo separado, no el de la RC1.
+
+El host se compila en el mismo workflow privado, en `build/WebView2Host/`. **Todavía falta confirmar la integración completa en Windows.** No copiar este host sobre la RC1 instalada.
+
 ## Construcción del lanzador
 
 En Windows con Go 1.23.2:
@@ -32,11 +40,11 @@ go build -trimpath -ldflags="-H windowsgui" -o ../../build/JavKT9.exe .
 
 En Linux se verificó la compilación cruzada para Windows/amd64 y las pruebas unitarias. Esto **no equivale** a probar la ejecución con el entorno GTK/WebView2 en Windows.
 
-El workflow `.github/workflows/compilar-edicion-publica-desarrollo.yml` compila el lanzador en Windows, ejecuta sus pruebas y genera un artefacto **privado de desarrollo**, sin publicarlo como release.
+El workflow `.github/workflows/compilar-edicion-publica-desarrollo.yml` compila el lanzador Go y el host WebView2 separado en Windows, ejecuta las pruebas del lanzador y guarda **artefactos privados de desarrollo**, sin publicarlos como release.
 
 ## Pendientes para una descarga pública funcional
 
-1. Comprobar en Windows que el nuevo lanzador inicia el programa y que el Bridge/WebView2 funciona con el perfil aislado. **No usar la RC1 instalada para estas pruebas.**
+1. Comprobar en Windows que el nuevo lanzador y el host WebView2 separado inician el programa y que la captura del Bridge coincide con el perfil aislado. **No usar la RC1 instalada para estas pruebas.**
 2. Definir un paquete autónomo con su propio nombre y ruta de instalación, sin reutilizar el instalador Beta 1 ni sobrescribir la RC1.
 3. Resolver derechos, licencias y avisos de `payload/usr/`, `payload/share/gcstar/`, .NET/WebView2 y demás componentes que se distribuyan.
 4. Documentar y proporcionar los fuentes correspondientes al PAR `gcstar.exe` y la receta de construcción. No declarar que es completamente reproducible hasta verificarlo.
