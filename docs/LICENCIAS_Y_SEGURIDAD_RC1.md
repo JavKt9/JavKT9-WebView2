@@ -1,13 +1,12 @@
-# Licencias y seguridad — revisión pendiente
+# Licencias y seguridad — JAVkt9 RC1
 
-JAVkt9 deriva de GCstar; conservar la atribución original y la GPL v2.0, además de los créditos «Modificaciones JAVkt9 © 2026 kt9».
+**No publicar todavía.** La auditoría detallada se encuentra en [AUDITORIA_LICENCIAS_RC1.md](AUDITORIA_LICENCIAS_RC1.md).
 
-La licencia raíz no demuestra por sí sola que todos los recursos y dependencias puedan redistribuirse: revisar iconos, imágenes, fuentes, módulos Perl, GTK, PAR, .NET, WebView2 y licencias de terceros.
+- GPL v2 completa en `LICENSE`, con atribución GCstar/kt9 en `NOTICE.md`.
+- 1115 archivos Perl incorporados y 4 claves antiguas retiradas.
+- 348 recursos GCstar (imágenes, logos, temas, tipografía) todavía no incorporados; la tipografía Liberation Sans declara SIL OFL 1.1 en el paquete original.
+- El payload incluye dependencias Perl/GTK y .NET/WebView2 cuya procedencia, versiones, licencias y avisos aún deben revisarse.
+- Faltan fuentes originales de `JavKT9.exe` y `GCJavBridgeLauncher.exe`; no se puede afirmar que el código correspondiente esté completo.
+- Gitleaks sin hallazgos no garantiza privacidad ni cumplimiento de licencias.
 
-Antes de publicar:
-- Revisar código e historial para evitar credenciales, datos personales, colecciones y perfiles/cookies WebView2.
-- Comprobar derechos de redistribución de cada componente incluido.
-- Verificar que el código fuente correspondiente y las instrucciones de construcción cubren los binarios que se distribuyen.
-- No confundir «escaneo de secretos sin hallazgos» con auditoría legal o de seguridad completa.
-
-**Esta rama no cambia la visibilidad del repositorio ni publica una release.**
+Revisar fuentes, licencias de terceros, logos, recursos, perfiles/cookies y todo el historial antes de cambiar visibilidad o publicar binarios. La rama `main` y la release RC1 no se modifican.
