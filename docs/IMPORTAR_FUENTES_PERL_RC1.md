@@ -1,19 +1,29 @@
 # Incorporación de las fuentes Perl RC1
 
-Esta rama contiene un importador comprobado con la distribución RC1 aportada. El importador no ejecuta el programa ni modifica instalaciones de Windows.
+**Estado: incorporadas y verificadas en la rama privada `fuentes-rc1-auditoria`.**
 
-## Procedimiento para la copia local
+El workflow `.github/workflows/importar-fuentes-rc1.yml` completó la importación automática desde el asset privado de la RC1 el 10 de octubre de 2026, después de:
 
-1. Descargar el repositorio de la rama `fuentes-rc1-auditoria` y descomprimirlo.
-2. Conservar el archivo original `JAVkt9_0.8.1_RC1_Beta_Publica_Windows.zip` sin modificar.
-3. Desde la carpeta raíz del repositorio, ejecutar en Windows (con Python instalado):
+- Verificar el SHA-256 del ZIP: `08fb8ef765e01909225245768d36be7797f4770a6a5d8eb7198d3f6195aadac4`.
+- Extraer 1115 archivos de fuentes y configuración (1114 archivos nuevos; `GCJavLibrary.conf` ya existía con el mismo contenido).
+- Retirar las cuatro claves API heredadas de módulos de TheMovieDB.
+- Ejecutar Gitleaks sobre `src/perl` sin coincidencias detectadas.
+- Confirmar los archivos en un commit automático exclusivo de la rama de auditoría.
+
+La versión estable, la RC1 instalada, `main` y las releases **no fueron modificadas**.
+
+## Reproducir en una copia local
+
+Con Python 3 y el ZIP original de la RC1:
 
 ```powershell
 python tools/importar_fuentes_rc1.py "RUTA_AL_ZIP_RC1" .
 ```
 
-El script verifica el SHA-256 exacto `08fb8ef765e01909225245768d36be7797f4770a6a5d8eb7198d3f6195aadac4`, comprueba la integridad del ZIP y copia únicamente los 1115 archivos fuente/configuración previstos. No sobrescribe contenido diferente. Conserva tanto `src/perl/bin/gcstar` como `src/perl/par_embebido/script/gcstar.pl`.
+El importador rechaza un ZIP con SHA distinto y evita sobrescribir archivos diferentes. Conserva las dos variantes del script `gcstar`.
 
-**Estado actual de GitHub:** el script y los documentos ya están en la rama privada. Los 1115 archivos fuente todavía no se han incorporado al repositorio remoto; el script permite hacerlo en una copia local y revisar los cambios antes de subirlos. No ejecutar workflows antiguos de instalador.
+## Límites
 
-**Importante:** falta la revisión de derechos de terceros, las fuentes de dos ejecutables y la compilación completa. No publicar el repositorio todavía.
+No se han importado recursos multimedia de `share/gcstar`, ejecutables ni perfiles de navegador. La ausencia de hallazgos de Gitleaks no garantiza que no haya datos privados. La revisión de licencias, la cadena de compilación y los fuentes originales de dos ejecutables siguen pendientes.
+
+**No fusionar con `main` ni hacer público el repositorio todavía.**
