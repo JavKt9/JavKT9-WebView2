@@ -1,0 +1,85 @@
+name: Revisar seguridad antes de hacer publico JAVkt9
+
+on:
+  workflow_dispatch:
+
+# Solo lectura: no publica releases ni modifica archivos.
+permissions:
+  contents: read
+
+jobs:
+  revisar-historial:
+    name: Buscar posibles secretos sin exponerlos
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Descargar historial completo del repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Descargar herramienta Gitleaks y verificar su SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/gitleaks.tar.gz"
+          curl --fail --location --silent --show-error --retry 3 \
+            --output "$archive" \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $archive" | sha256sum --check --status
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
+          chmod +x "$RUNNER_TEMP/gitleaks"
+          "$RUNNER_TEMP/gitleaks" version
+
+      - name: Revisar todo el historial y los archivos actuales
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Los informes se guardan SOLO en el almacenamiento efimero del runner.
+          # No se suben artifacts ni se imprimen coincidencias o secretos en el log.
+          gitleaks="$RUNNER_TEMP/gitleaks"
+          status_hist=0
+          status_files=0
+          "$gitleaks" git --no-banner --redact=100 --log-opts="--all" \
+            --report-format=json --report-path="$RUNNER_TEMP/historial.json" . \
+            >"$RUNNER_TEMP/historial_salida.txt" 2>&1 || status_hist=$?
+          "$gitleaks" dir --no-banner --redact=100 \
+            --report-format=json --report-path="$RUNNER_TEMP/archivos.json" . \
+            >"$RUNNER_TEMP/archivos_salida.txt" 2>&1 || status_files=$?
+          if (( status_hist > 1 || status_files > 1 )); then
+            echo "ERROR: no pudo completarse el analisis. No se muestran registros por seguridad."
+            echo "Codigos: historial=$status_hist, archivos=$status_files"
+            exit 2
+          fi
+          python - "$RUNNER_TEMP" "$status_hist" "$status_files" <<'PYCODE'
+          import json, pathlib, sys
+          folder = pathlib.Path(sys.argv[1])
+          errors = False
+          for name, status in (("historial", int(sys.argv[2])), ("archivos", int(sys.argv[3]))):
+              path = folder / (name + ".json")
+              if path.exists():
+                  try:
+                      findings = json.loads(path.read_text(encoding="utf-8")) or []
+                  except Exception:
+                      print("ERROR: no se pudo leer el informe de", name)
+                      sys.exit(2)
+              else:
+                  if status != 0:
+                      print("ERROR: falta el informe de", name)
+                      sys.exit(2)
+                  findings = []
+              if not isinstance(findings, list):
+                  print("ERROR: formato inesperado en", name)
+                  sys.exit(2)
+              print(f"{name.capitalize()}: {len(findings)} posible(s) secreto(s).")
+              if findings:
+                  errors = True
+          if errors:
+              print("REVISAR ANTES DE PUBLICAR: posibles secretos detectados.")
+              print("No se han mostrado valores, rutas de coincidencias ni informes.")
+              sys.exit(1)
+          print("SIN COINCIDENCIAS: el analisis automatico no encontro posibles secretos.")
+          print("Esto no garantiza ausencia de datos privados ni valida licencias.")
+          PYCODE
