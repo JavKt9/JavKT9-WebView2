@@ -37,17 +37,19 @@ class PortableTests(unittest.TestCase):
             (repo / "NOTICE.md").write_text("GCstar credits")
             launcher = root / "launcher.exe"
             launcher.write_bytes(b"new launcher")
+            bridge_launcher = root / "bridge_launcher.exe"
+            bridge_launcher.write_bytes(b"new bridge launcher")
             host = root / "host"
             host.mkdir()
             (host / "JavKT9WebView2.exe").write_bytes(b"new host")
             output = root / "preview.zip"
-            portable.assemble(archive, launcher, host, repo, output)
+            portable.assemble(archive, launcher, bridge_launcher, host, repo, output)
             with zipfile.ZipFile(output) as z:
                 names = z.namelist()
                 prefix = portable.ROOT
                 self.assertEqual(z.read(prefix + "JavKT9.exe"), b"new launcher")
                 self.assertEqual(z.read(prefix + "bin/WebView2Host/JavKT9WebView2.exe"), b"new host")
-                self.assertNotIn(prefix + "bin/GCJavBridgeLauncher.exe", names)
+                self.assertEqual(z.read(prefix + "bin/GCJavBridgeLauncher.exe"), b"new bridge launcher")
                 self.assertNotIn("Instalar_JAVkt9_RC1_Publica.ps1", names)
                 for name in portable.REDACT:
                     self.assertEqual(z.read(prefix + "lib/gcstar/" + name), b'my $apiKey = "";')
