@@ -7,6 +7,7 @@ on:
       - edicion-publica-desarrollo
     paths:
       - src/public-launcher/**
+      - src/public-bridge-launcher/**
       - src/public-webview2/**
       - tools/armar_portable_publica_desarrollo.py
       - tools/test_armar_portable_publica_desarrollo.py
@@ -44,11 +45,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Error compilando lanzador" }
           if (!(Test-Path "../../build/JavKT9.exe")) { throw "Falta ejecutable" }
           Get-FileHash "../../build/JavKT9.exe" -Algorithm SHA256
+      - name: Probar y compilar nuevo BridgeLauncher Go
+        shell: pwsh
+        working-directory: src/public-bridge-launcher
+        run: |
+          go test ./...
+          if ($LASTEXITCODE -ne 0) { throw "Error en pruebas BridgeLauncher" }
+          $env:GOOS = 'windows'
+          $env:GOARCH = 'amd64'
+          $env:CGO_ENABLED = '0'
+          go build -trimpath -ldflags="-H windowsgui" -o "../../build/GCJavBridgeLauncher.exe" .
+          if ($LASTEXITCODE -ne 0) { throw "Error compilando BridgeLauncher" }
+          if (!(Test-Path "../../build/GCJavBridgeLauncher.exe")) { throw "Falta BridgeLauncher" }
+          Get-FileHash "../../build/GCJavBridgeLauncher.exe" -Algorithm SHA256
       - name: Guardar solo el lanzador de desarrollo (artefacto privado)
         uses: actions/upload-artifact@v4
         with:
           name: JavKT9-Publica-Desarrollo-lanzador-win64
-          path: build/JavKT9.exe
+          path: build/*.exe
           if-no-files-found: error
           retention-days: 7
 
@@ -210,7 +224,7 @@ jobs:
 
           **RESULTADO: CORRECTO EN GITHUB ACTIONS.**
 
-          - Lanzador Go 1.23.2 para Windows x64: pruebas unitarias y compilacion completadas.
+          - Dos lanzadores Go 1.23.2 para Windows x64: pruebas unitarias y compilacion completadas.
           - Variante separada del host WebView2 con .NET 8 para Windows x64: compilacion completada.
           - Se genero un ZIP portatil de desarrollo privado con el nuevo lanzador Go y el host WebView2 aislado, junto a dependencias originales de RC1; retencion de 7 dias. No es una release.
           - No se ejecutaron pruebas de busqueda con JavLibrary ni instaladores.
