@@ -136,6 +136,63 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  smoke-perl-fuente:
+    needs: [paquete-portable]
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout rama privada
+        uses: actions/checkout@v4
+      - name: Obtener paquete portable privado
+        uses: actions/download-artifact@v4
+        with:
+          name: JAVkt9_Edicion_Publica_Desarrollo_PORTABLE_PRIVADO
+          path: preview
+      - name: Comprobar arranque del script Perl sin PAR (sin GUI)
+        shell: pwsh
+        run: |
+          Expand-Archive -LiteralPath "preview/JAVkt9_Edicion_Publica_Desarrollo_PORTABLE_PRIVADO.zip" -DestinationPath "preview/unpacked" -Force
+          $exe = (Resolve-Path "preview/unpacked/JAVkt9-Publica-Desarrollo/JavKT9.exe").Path
+          $passed = $false
+          $reason = "No se pudo completar el arranque del script Perl."
+          try {
+            $p = Start-Process -FilePath $exe -ArgumentList @('--source-mode', '--version') -PassThru
+            if (!$p.WaitForExit(45000)) {
+              $p.Kill()
+              $reason = "El proceso no termino en 45 segundos."
+            } elseif ($p.ExitCode -eq 0) {
+              $passed = $true
+            } else {
+              $reason = "El proceso termino con codigo distinto de cero."
+            }
+          } catch {
+            $reason = "No se pudo iniciar el proceso de prueba."
+          }
+          if ($passed) {
+            $status = "**RESULTADO: CORRECTO.** El lanzador Go pudo iniciar el script Perl con `--version` sin usar el PAR."
+          } else {
+            $status = "**RESULTADO: NO SUPERADO.** " + $reason
+          }
+          $report = @"
+          # Prueba de arranque desde fuentes Perl
+
+          $status
+
+          La prueba se ejecuto en un runner Windows aislado sobre el ZIP portatil privado. Solo solicito la version del script Perl; **no se ejecuto la interfaz grafica ni se comprobo la busqueda con WebView2**.
+
+          El resultado no autoriza una release publica. No se modificaron las instalaciones del usuario.
+          "@
+          Set-Content -LiteralPath "docs/RESULTADO_MODO_PERL_FUENTE.md" -Value $report -Encoding utf8
+          git add docs/RESULTADO_MODO_PERL_FUENTE.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ((git diff --cached --name-only).Length -gt 0) {
+            git commit -m "ci: registrar prueba de arranque Perl sin PAR"
+            git pull --rebase origin edicion-publica-desarrollo
+            git push origin HEAD:edicion-publica-desarrollo
+          }
+          if (!$passed) { throw "No paso la prueba de arranque Perl desde fuentes" }
+
   registrar-resultado:
     needs: [launcher, host-webview2, paquete-portable]
     runs-on: ubuntu-latest
