@@ -30,7 +30,9 @@ verificacion de licencias y receta de compilacion.
 
 Para una futura prueba aislada en Windows, extraer a una carpeta propia y
 abrir JavKT9.exe. No ejecutar en paralelo con la RC1: ambas usan el puerto 53118.
-La variante WebView2 de desarrollo mantiene su perfil en carpetas separadas.\nJavKT9-Fuentes.cmd permite probar opcionalmente el script Perl fuente con wperl.exe\nsin usar el PAR; esta alternativa todavia no tiene validacion funcional.
+La variante WebView2 de desarrollo mantiene su perfil en carpetas separadas.
+JavKT9-Fuentes.cmd permite probar opcionalmente el script Perl fuente con wperl.exe
+sin usar el PAR; esta alternativa todavia no tiene validacion funcional.
 
 NO REDISTRIBUIR ESTE ZIP. Falta comprobar funcionamiento integral en Windows.
 """
