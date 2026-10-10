@@ -1,6 +1,6 @@
 # JAVkt9
 
-> **Rama privada de auditoría `fuentes-rc1-auditoria` (0.8.1 RC1):** aquí se recuperaron 1.115 fuentes Perl y se documentaron licencias y compilación parcial. **No instalar ni publicar esta rama como una versión completa.** Ver [estado de fuentes](docs/ESTADO_PUBLICACION_RC1.md), [auditoría de licencias](docs/AUDITORIA_LICENCIAS_RC1.md) y [compilación RC1](docs/COMPILACION_RC1.md). El texto histórico sobre Beta 1 que sigue debajo corresponde a la rama principal original.
+> **EDICIÓN PÚBLICA — DESARROLLO PRIVADO:** esta rama prepara un lanzador Go libre y una variante separada del host WebView2 para una futura versión descargable de JAVkt9. **Todavía no es una release ni un instalador.** No modificar ni sustituir la RC1 funcional. Consultar [plan y código de la edición pública](docs/EDICION_PUBLICA_DESARROLLO.md).\n\n> **Rama privada de auditoría `fuentes-rc1-auditoria` (0.8.1 RC1):** aquí se recuperaron 1.115 fuentes Perl y se documentaron licencias y compilación parcial. **No instalar ni publicar esta rama como una versión completa.** Ver [estado de fuentes](docs/ESTADO_PUBLICACION_RC1.md), [auditoría de licencias](docs/AUDITORIA_LICENCIAS_RC1.md) y [compilación RC1](docs/COMPILACION_RC1.md). El texto histórico sobre Beta 1 que sigue debajo corresponde a la rama principal original.
 
 **JAVkt9** es un gestor de colecciones JAV para Windows, basado en GCstar y adaptado para consultar metadatos y portadas mediante un flujo WebView2 integrado.
 
