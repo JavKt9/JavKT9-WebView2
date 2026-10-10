@@ -1,0 +1,145 @@
+name: Verificar JAVkt9 RC1 sin artifacts
+
+# Solo bajo demanda, sin publicar ni alterar releases.
+on:
+  workflow_dispatch:
+
+# Se necesita acceso al borrador privado de Releases.
+# No se realizan operaciones de escritura sobre el repositorio.
+permissions:
+  contents: write
+
+jobs:
+  prueba-windows:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    env:
+      RELEASE_TAG: v0.8.1-rc1
+      ZIP_NAME: JAVkt9_0.8.1_RC1_Beta_Publica_Windows.zip
+      ZIP_SHA256: 08fb8ef765e01909225245768d36be7797f4770a6a5d8eb7198d3f6195aadac4
+    steps:
+      - name: Descargar EL ZIP del borrador y comprobar SHA256
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = 'application/vnd.github+json'
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+          $url = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases?per_page=100"
+          $releases = @(Invoke-RestMethod -Uri $url -Headers $headers)
+          $match = @($releases | Where-Object { $_.tag_name -eq $env:RELEASE_TAG -and $_.draft })
+          if ($match.Count -ne 1) {
+            throw "No se encontro un unico borrador con tag $env:RELEASE_TAG. Revisa el tag del borrador y los permisos Actions."
+          }
+          $assets = @($match[0].assets | Where-Object { $_.name -eq $env:ZIP_NAME })
+          if ($assets.Count -ne 1) { throw "No se encontro el ZIP exacto en el borrador: $env:ZIP_NAME" }
+          $asset = $assets[0]
+          if ($asset.state -ne 'uploaded') { throw "El ZIP todavia no ha terminado de subirse: $($asset.state)" }
+          $download = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/assets/$($asset.id)"
+          $archive = Join-Path $env:RUNNER_TEMP $env:ZIP_NAME
+          $binaryHeaders = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = 'application/octet-stream'
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+          Invoke-WebRequest -Uri $download -Headers $binaryHeaders -MaximumRedirection 5 -OutFile $archive
+          if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) { throw 'La descarga no produjo ningun archivo.' }
+          $actualHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "SHA256 ZIP: $actualHash" | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'resultado-verificacion.txt')
+          if ($actualHash -ne $env:ZIP_SHA256) {
+            throw "El ZIP no coincide con el que se verifico antes de subir. Esperado: $env:ZIP_SHA256"
+          }
+          $path = Join-Path $env:RUNNER_TEMP 'paquete-extraido'
+          Expand-Archive -LiteralPath $archive -DestinationPath $path -Force
+          $mf = Join-Path $path 'manifest.json'
+          if (-not (Test-Path -LiteralPath $mf -PathType Leaf)) { throw 'Falta manifest.json dentro del ZIP.' }
+          $manifest = Get-Content -LiteralPath $mf -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($manifest.version -ne '0.8.1 RC1 Beta Publica') { throw 'Version del inventario incorrecta.' }
+          $count = 0
+          foreach ($entry in $manifest.files.PSObject.Properties) { $count++ }
+          if ($count -ne 6213) { throw "El inventario tiene $count archivos; esperados: 6213." }
+          "ZIP descargado y extraido: $count archivos registrados." | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'resultado-verificacion.txt') -Append
+
+      - name: Instalar en Windows limpio usando el instalador real
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $folder = Join-Path $env:RUNNER_TEMP 'paquete-extraido'
+          $installer = Join-Path $folder 'Instalar_JAVkt9_RC1_Publica.ps1'
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw 'No existe el instalador dentro del ZIP.' }
+          $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+          $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+          if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+            throw 'El runner no tiene permisos de administrador y no puede instalar en Program Files.'
+          }
+          $installed = Join-Path $env:ProgramFiles 'JavKT9-081-RC1-Publica'
+          if (Test-Path -LiteralPath $installed) { throw 'La maquina no esta limpia: ya existe esa carpeta.' }
+          # Se usa powershell.exe (Windows PowerShell 5.1), como el .cmd entregado al usuario.
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer 2>&1 |
+            Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'salida-instalador.txt')
+          if ($LASTEXITCODE -ne 0) { throw "El instalador devolvio el codigo $LASTEXITCODE." }
+          if (-not (Test-Path -LiteralPath (Join-Path $installed 'bin\gcstar.exe') -PathType Leaf)) {
+            throw 'Instalacion sin bin\\gcstar.exe.'
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path $installed 'JAVKT9_RC1_PUBLICA_MANIFEST.json') -PathType Leaf)) {
+            throw 'Instalacion sin inventario instalado.'
+          }
+          $manifest = Get-Content -LiteralPath (Join-Path $installed 'JAVKT9_RC1_PUBLICA_MANIFEST.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          $count = 0
+          foreach ($entry in $manifest.files.PSObject.Properties) { $count++ }
+          if ($count -ne 6213) { throw "Inventario instalado incompleto: $count" }
+          "INSTALACION: OK, inventario instalado de $count archivos." |
+            Add-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'resultado-verificacion.txt') -Encoding utf8
+
+      - name: Prueba basica de arranque sin interaccion
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installed = Join-Path $env:ProgramFiles 'JavKT9-081-RC1-Publica'
+          $launcher = Join-Path $installed 'Iniciar_JAVkt9_RC1_Publica.ps1'
+          $exe = Join-Path $installed 'bin\gcstar.exe'
+          if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) { throw 'Falta el lanzador instalado.' }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $launcher 2>&1 |
+            Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'salida-arranque.txt')
+          if ($LASTEXITCODE -ne 0) { throw "El lanzador devolvio codigo $LASTEXITCODE." }
+          Start-Sleep -Seconds 20
+          $found = @(Get-CimInstance Win32_Process -Filter "Name='gcstar.exe'" |
+            Where-Object { $_.ExecutablePath -ieq $exe })
+          if ($found.Count -eq 0) {
+            throw 'El proceso de JAVkt9 no permanecio ejecutandose despues de 20 segundos.'
+          }
+          "ARRANQUE: OK, gcstar.exe continua ejecutandose tras 20 segundos." |
+            Add-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'resultado-verificacion.txt') -Encoding utf8
+          # No se comprueba visualmente una ventana GTK: la verificacion grafica es manual.
+          $found | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+
+      # Los diagnosticos se muestran en el log de GitHub Actions.
+      # No se suben artifacts, por lo que esta prueba no consume cuota de almacenamiento de artifacts.
+      - name: Mostrar diagnosticos sin guardar artifacts
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host '========================================'
+          Write-Host 'RESULTADOS DE LA PRUEBA JAVKT9 RC1'
+          Write-Host '========================================'
+          foreach ($name in @('resultado-verificacion.txt','salida-instalador.txt','salida-arranque.txt')) {
+            $path = Join-Path $env:RUNNER_TEMP $name
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+              Write-Host "----- $name -----"
+              Get-Content -LiteralPath $path -Tail 100 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
+            } else {
+              Write-Host "No se encontro $name"
+            }
+          }
+          $runtime = Join-Path $env:APPDATA 'JavKT9-081-RC1-Publica\Runtime'
+          foreach ($name in @('Error_Arranque.txt','gcstar.log')) {
+            $path = Join-Path $runtime $name
+            if (Test-Path -LiteralPath $path -PathType Leaf) {
+              Write-Host "----- $name (ultimas 50 lineas) -----"
+              Get-Content -LiteralPath $path -Tail 50 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_ }
+            }
+          }
