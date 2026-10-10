@@ -7,6 +7,7 @@ on:
       - edicion-publica-desarrollo
     paths:
       - src/public-launcher/**
+      - src/public-webview2/**
       - .github/workflows/compilar-edicion-publica-desarrollo.yml
 
 permissions:
@@ -46,5 +47,34 @@ jobs:
         with:
           name: JavKT9-Publica-Desarrollo-lanzador-win64
           path: build/JavKT9.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  host-webview2:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout rama aislada
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Instalar .NET SDK 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compilar variante publica del host WebView2
+        shell: pwsh
+        run: |
+          dotnet restore "src/public-webview2/JavKT9WebView2.Public.csproj" -r win-x64
+          if ($LASTEXITCODE -ne 0) { throw "Error restaurando dependencias" }
+          dotnet publish "src/public-webview2/JavKT9WebView2.Public.csproj" -c Release -r win-x64 --self-contained true --no-restore -o "build/WebView2Host"
+          if ($LASTEXITCODE -ne 0) { throw "Error compilando host publico" }
+          if (!(Test-Path "build/WebView2Host/JavKT9WebView2.exe")) { throw "Falta host" }
+          Get-FileHash "build/WebView2Host/JavKT9WebView2.exe" -Algorithm SHA256
+      - name: Guardar host de desarrollo (artefacto privado)
+        uses: actions/upload-artifact@v4
+        with:
+          name: JavKT9-Publica-Desarrollo-WebView2Host-win64
+          path: build/WebView2Host/
           if-no-files-found: error
           retention-days: 7
