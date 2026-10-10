@@ -1,0 +1,50 @@
+name: Compilar lanzador edicion publica (privado)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - edicion-publica-desarrollo
+    paths:
+      - src/public-launcher/**
+      - .github/workflows/compilar-edicion-publica-desarrollo.yml
+
+permissions:
+  contents: read
+
+jobs:
+  launcher:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout rama aislada
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Instalar Go 1.23.2
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Probar codigo fuente
+        working-directory: src/public-launcher
+        run: go test ./...
+      - name: Compilar nuevo lanzador Windows x64
+        shell: pwsh
+        working-directory: src/public-launcher
+        run: |
+          $env:GOOS = 'windows'
+          $env:GOARCH = 'amd64'
+          $env:CGO_ENABLED = '0'
+          New-Item -ItemType Directory -Path "../../build" -Force | Out-Null
+          go build -trimpath -ldflags="-H windowsgui" -o "../../build/JavKT9.exe" .
+          if ($LASTEXITCODE -ne 0) { throw "Error compilando lanzador" }
+          if (!(Test-Path "../../build/JavKT9.exe")) { throw "Falta ejecutable" }
+          Get-FileHash "../../build/JavKT9.exe" -Algorithm SHA256
+      - name: Guardar solo el lanzador de desarrollo (artefacto privado)
+        uses: actions/upload-artifact@v4
+        with:
+          name: JavKT9-Publica-Desarrollo-lanzador-win64
+          path: build/JavKT9.exe
+          if-no-files-found: error
+          retention-days: 7
