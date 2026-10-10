@@ -1,0 +1,59 @@
+package GCPlugins::GCgadgets::GCAmazonPL;
+
+###################################################
+#
+#  Copyright 2005-2009 Tian
+#  Copyright 2016-2024 Kerenoc
+#
+#  This file is part of GCstar.
+#
+#  GCstar is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  GCstar is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with GCstar; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+#
+###################################################
+
+use strict;
+use utf8;
+
+use GCPlugins::GCgadgets::GCgadgetsCommon;
+use GCPlugins::GCstar::GCAmazonCommonBCGG;
+
+{
+    package GCPlugins::GCgadgets::GCPluginAmazonPL;
+
+    use base qw(GCPlugins::GCstar::GCPluginAmazonCommonBCGG);
+    use base qw(GCPlugins::GCgadgets::GCgadgetsPluginsBase);
+
+    sub getEanField
+    {
+        return 'ean';
+    }
+
+    sub baseWWWamazonUrl
+    {
+        return "www.amazon.pl";
+    }
+
+    sub getName
+    {
+        return "Amazon (PL)";
+    }
+
+    sub getLang
+    {
+        return 'PL';
+    }
+}
+
+1;

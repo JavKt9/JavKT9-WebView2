@@ -1,0 +1,2 @@
+GCPlugins/GCcoins/GCNumista.pm
+GCPlugins/GCcoins/GCcoinsCommon.pm
