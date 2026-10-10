@@ -9,7 +9,7 @@ on:
       - .github/workflows/verificar-compilacion-webview2-rc1.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   compilar-host:
@@ -19,7 +19,7 @@ jobs:
       - name: Descargar fuentes de la rama de auditoria
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Instalar .NET SDK 8
         uses: actions/setup-dotnet@v4
@@ -45,3 +45,31 @@ jobs:
           $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
           Write-Output "Compilacion correcta. SHA-256 del host construido: $hash"
           Write-Output "No se ha probado la captura de peliculas ni se ha construido un instalador."
+
+      - name: Registrar compilacion exitosa en rama de auditoria
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:RUNNER_TEMP "JavKT9WebView2-verificacion/JavKT9WebView2.exe"
+          if (!(Test-Path -LiteralPath $exe)) { throw "El EXE no existe" }
+          $hash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
+          $report = @'
+          # Verificacion de compilacion WebView2 RC1
+
+          **RESULTADO: COMPILACION CORRECTA EN WINDOWS** (GitHub Actions).
+
+          Se ejecuto `dotnet restore` y `dotnet publish` para `src/JavKT9WebView2/JavKT9WebView2.csproj`, con .NET SDK 8, `win-x64` y `--self-contained true`.
+
+          Se genero `JavKT9WebView2.exe` en una carpeta temporal del runner. No se publico, instalo ni ejecuto el host.
+
+          **No se ha comprobado equivalencia con el EXE RC1 ni funcionamiento de WebView2 con JavLibrary.** Tampoco se han compilado `JavKT9.exe`, `GCJavBridgeLauncher.exe` ni el instalador.
+          '@
+          $report += "`n- SHA-256 del EXE generado: `$hash`.`n"
+          Set-Content -LiteralPath "docs/VERIFICACION_COMPILACION_WEBVIEW2_RC1.md" -Value $report -Encoding utf8
+          git add -- docs/VERIFICACION_COMPILACION_WEBVIEW2_RC1.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "audit: registrar compilacion de host WebView2 en Windows"
+          git pull --rebase origin fuentes-rc1-auditoria
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo rebasar el reporte" }
+          git push origin HEAD:fuentes-rc1-auditoria
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo subir el reporte" }
