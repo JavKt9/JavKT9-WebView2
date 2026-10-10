@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Importa exclusivamente fuentes Perl de la distribución RC1 verificada.
+"""Importar fuentes RC1 en un repositorio privado, sin ejecutables ni credenciales.
 
-No modifica ejecutables, instaladores ni carpetas Windows.
-Excluye perfiles, colecciones y recursos multimedia de share/gcstar.
+Requiere el ZIP RC1 exacto; modifica SOLO la copia de fuentes destino.
 """
 from __future__ import annotations
 import hashlib
 import io
 from pathlib import Path
+import re
 import sys
 import zipfile
 
@@ -18,12 +18,18 @@ EXTRA = {
     "payload/bin/gcstar": "src/perl/bin/gcstar",
     "payload/bin/gcstar.bat": "src/perl/bin/gcstar.bat",
 }
+REDACT_KEYS = {
+    "GCPlugins/GCTVepisodes/GCThemoviedb.pm",
+    "GCPlugins/GCTVseries/GCThemoviedb.pm",
+    "GCPlugins/GCfilms/GCThemoviedb.pm",
+    "GCPlugins/GCstar/GCThemoviedbCommon.pm",
+}
 
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            h.update(block)
     return h.hexdigest()
 
 def safe_write(root: Path, rel: str, data: bytes) -> bool:
@@ -33,11 +39,25 @@ def safe_write(root: Path, rel: str, data: bytes) -> bool:
     target = root / rel_path
     if target.exists():
         if target.read_bytes() != data:
-            raise ValueError(f"Archivo preexistente distinto; no sobrescribir: {rel}")
+            raise ValueError(f"Archivo existente distinto; no sobrescribir: {rel}")
         return False
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
     return True
+
+def redact_keys(data: bytes, rel: str) -> bytes:
+    if rel not in REDACT_KEYS:
+        return data
+    data, count = re.subn(
+        rb'(?m)(\bmy\s+\$apiKey\s*=\s*")[^"\r\n]+(")',
+        rb'\1\2',
+        data,
+    )
+    if count != 1:
+        raise ValueError(f"No se pudo retirar la clave esperada: {rel}")
+    # Una URL de ejemplo en un comentario tambien contenia una clave.
+    data = re.sub(rb'(?i)(api_key=)[a-f0-9]{32}', rb'\1REDACTED', data)
+    return data
 
 def main() -> None:
     if len(sys.argv) != 3:
@@ -49,6 +69,7 @@ def main() -> None:
     root.mkdir(parents=True, exist_ok=True)
     added = 0
     seen = 0
+    redacted = set()
     with zipfile.ZipFile(archive) as z:
         if z.testzip() is not None:
             raise SystemExit("ERROR: RC1 ZIP corrupto")
@@ -61,8 +82,12 @@ def main() -> None:
                 if not rel:
                     continue
                 if Path(rel).suffix.lower() not in {".pm", ".pl", ".conf", ".txt", ".gcm", ".png", ".pm_archive"} and Path(rel).name not in {"GCstar", "README"}:
-                    raise SystemExit(f"ERROR: tipo de archivo inesperado: {name}")
-                added += safe_write(root, DEST_PREFIX + rel, z.read(entry))
+                    raise SystemExit(f"ERROR: tipo inesperado: {name}")
+                data = z.read(entry)
+                if rel in REDACT_KEYS:
+                    data = redact_keys(data, rel)
+                    redacted.add(rel)
+                added += safe_write(root, DEST_PREFIX + rel, data)
                 seen += 1
             elif name in EXTRA:
                 added += safe_write(root, EXTRA[name], z.read(entry))
@@ -71,10 +96,10 @@ def main() -> None:
             embedded = par.read("script/gcstar.pl")
             added += safe_write(root, "src/perl/par_embebido/script/gcstar.pl", embedded)
             seen += 1
-    if seen != 1115:
-        raise SystemExit(f"ERROR: número de fuentes inesperado: {seen} (esperado 1115)")
-    print(f"Verificado SHA-256 de RC1. Fuentes revisadas: {seen}; incorporadas: {added}.")
-    print("No se importaron ejecutables, perfiles, colecciones ni recursos de share/gcstar.")
+    if seen != 1115 or redacted != REDACT_KEYS:
+        raise SystemExit(f"ERROR: fuentes inesperadas ({seen}) o redacciones incompletas ({len(redacted)})")
+    print(f"ZIP RC1 verificado. Archivos fuente: {seen}; nuevos: {added}; claves retiradas: {len(redacted)}.")
+    print("No se importaron ejecutables, colecciones, perfiles ni datos de navegador.")
 
 if __name__ == "__main__":
     main()
