@@ -23,7 +23,7 @@ README = """JAVkt9 - EDICION PUBLICA EN DESARROLLO (VISTA PREVIA PRIVADA)
 NO ES UNA RELEASE PUBLICA. NO ES UN INSTALADOR.
 No copiar archivos a Program Files ni sobre una instalacion de JAVkt9.
 
-Esta vista previa usa un lanzador Go nuevo con fuentes en src/public-launcher/
+Esta vista previa usa dos lanzadores Go nuevos, con fuentes en\nsrc/public-launcher/ y src/public-bridge-launcher/,
 y una variante separada del host C# con fuentes en src/public-webview2/.
 Conserva el GCstar/PAR y dependencias de la RC1 original, aun pendientes de
 verificacion de licencias y receta de compilacion.
@@ -61,11 +61,13 @@ def add_file(zout: zipfile.ZipFile, name: str, data: bytes, manifest: list[str])
     manifest.append(f"{hashlib.sha256(data).hexdigest()}  {name[len(ROOT):]}")
 
 
-def assemble(rc1: Path, launcher: Path, host: Path, repo: Path, output: Path) -> None:
+def assemble(rc1: Path, launcher: Path, bridge_launcher: Path, host: Path, repo: Path, output: Path) -> None:
     if sha256_file(rc1) != RC1_SHA256:
         raise ValueError("El ZIP RC1 no coincide con el SHA-256 original")
     if not launcher.is_file():
         raise ValueError("Falta el lanzador Go nuevo")
+    if not bridge_launcher.is_file():
+        raise ValueError("Falta el nuevo BridgeLauncher Go")
     if not (host / "JavKT9WebView2.exe").is_file():
         raise ValueError("Falta el host WebView2 compilado para la edicion publica")
     host_files = sorted(p for p in host.rglob("*") if p.is_file())
@@ -98,6 +100,7 @@ def assemble(rc1: Path, launcher: Path, host: Path, repo: Path, output: Path) ->
             add_file(dest, ROOT + rel, data, manifest)
             count += 1
         add_file(dest, ROOT + "JavKT9.exe", launcher.read_bytes(), manifest)
+        add_file(dest, ROOT + "bin/GCJavBridgeLauncher.exe", bridge_launcher.read_bytes(), manifest)
         add_file(dest, ROOT + "JavKT9-Fuentes.cmd",
                  b'@echo off\r\nstart "" "%~dp0JavKT9.exe" --source-mode\r\n', manifest)
         for path in host_files:
@@ -110,7 +113,7 @@ def assemble(rc1: Path, launcher: Path, host: Path, repo: Path, output: Path) ->
         add_file(dest, ROOT + "MANIFIESTO_SHA256.txt", ("\n".join(manifest) + "\n").encode("utf-8"), [])
     print(f"Paquete privado creado: {output}")
     print(f"Entradas de payload conservadas: {count}; archivos WebView2 nuevos: {len(host_files)}")
-    print("Excluidos: dos ejecutables Go originales, host WebView2 original e instaladores RC1")
+    print("Sustituidos: dos ejecutables Go originales y host WebView2 original; excluidos instaladores RC1")
     print("NO PUBLICAR: licencias y receta PAR pendientes.")
 
 
@@ -118,11 +121,12 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--rc1", type=Path, required=True)
     p.add_argument("--launcher", type=Path, required=True)
+    p.add_argument("--bridge-launcher", type=Path, required=True)
     p.add_argument("--host", type=Path, required=True)
     p.add_argument("--repo", type=Path, default=Path("."))
     p.add_argument("--output", type=Path, required=True)
     args = p.parse_args()
-    assemble(args.rc1, args.launcher, args.host, args.repo, args.output)
+    assemble(args.rc1, args.launcher, args.bridge_launcher, args.host, args.repo, args.output)
 
 
 if __name__ == "__main__":
