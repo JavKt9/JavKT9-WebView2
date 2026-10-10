@@ -30,7 +30,7 @@ verificacion de licencias y receta de compilacion.
 
 Para una futura prueba aislada en Windows, extraer a una carpeta propia y
 abrir JavKT9.exe. No ejecutar en paralelo con la RC1: ambas usan el puerto 53118.
-La variante WebView2 de desarrollo mantiene su perfil en carpetas separadas.
+La variante WebView2 de desarrollo mantiene su perfil en carpetas separadas.\nJavKT9-Fuentes.cmd permite probar opcionalmente el script Perl fuente con wperl.exe\nsin usar el PAR; esta alternativa todavia no tiene validacion funcional.
 
 NO REDISTRIBUIR ESTE ZIP. Falta comprobar funcionamiento integral en Windows.
 """
@@ -96,6 +96,8 @@ def assemble(rc1: Path, launcher: Path, host: Path, repo: Path, output: Path) ->
             add_file(dest, ROOT + rel, data, manifest)
             count += 1
         add_file(dest, ROOT + "JavKT9.exe", launcher.read_bytes(), manifest)
+        add_file(dest, ROOT + "JavKT9-Fuentes.cmd",
+                 b'@echo off\r\nstart "" "%~dp0JavKT9.exe" --source-mode\r\n', manifest)
         for path in host_files:
             rel = path.relative_to(host).as_posix()
             add_file(dest, ROOT + "bin/WebView2Host/" + rel, path.read_bytes(), manifest)
