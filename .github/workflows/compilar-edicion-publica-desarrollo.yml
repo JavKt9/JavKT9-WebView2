@@ -79,8 +79,60 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  registrar-resultado:
+  paquete-portable:
     needs: [launcher, host-webview2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout rama privada
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Obtener lanzador Go nuevo
+        uses: actions/download-artifact@v4
+        with:
+          name: JavKT9-Publica-Desarrollo-lanzador-win64
+          path: build/launcher
+      - name: Obtener host WebView2 aislado
+        uses: actions/download-artifact@v4
+        with:
+          name: JavKT9-Publica-Desarrollo-WebView2Host-win64
+          path: build/WebView2Host
+      - name: Descargar RC1 original desde release privada
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/octet-stream" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/assets/623451801" \
+            --output "$RUNNER_TEMP/JAVkt9_RC1.zip"
+          echo "08fb8ef765e01909225245768d36be7797f4770a6a5d8eb7198d3f6195aadac4  $RUNNER_TEMP/JAVkt9_RC1.zip" | sha256sum -c -
+      - name: Armar ZIP portatil de desarrollo (sin instalador)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/armar_portable_publica_desarrollo.py \
+            --rc1 "$RUNNER_TEMP/JAVkt9_RC1.zip" \
+            --launcher build/launcher/JavKT9.exe \
+            --host build/WebView2Host \
+            --repo . \
+            --output build/JAVkt9_Edicion_Publica_Desarrollo_PORTABLE_PRIVADO.zip
+          unzip -l build/JAVkt9_Edicion_Publica_Desarrollo_PORTABLE_PRIVADO.zip | tail -n 2
+          sha256sum build/JAVkt9_Edicion_Publica_Desarrollo_PORTABLE_PRIVADO.zip
+      - name: Guardar vista previa PRIVADA (no release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAVkt9_Edicion_Publica_Desarrollo_PORTABLE_PRIVADO
+          path: build/JAVkt9_Edicion_Publica_Desarrollo_PORTABLE_PRIVADO.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  registrar-resultado:
+    needs: [launcher, host-webview2, paquete-portable]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -98,7 +150,7 @@ jobs:
 
           - Lanzador Go 1.23.2 para Windows x64: pruebas unitarias y compilacion completadas.
           - Variante separada del host WebView2 con .NET 8 para Windows x64: compilacion completada.
-          - Se generaron artefactos de desarrollo privados (retencion de 7 dias), no una release.
+          - Se genero un ZIP portatil de desarrollo privado con el nuevo lanzador Go y el host WebView2 aislado, junto a dependencias originales de RC1; retencion de 7 dias. No es una release.
           - No se ejecutaron pruebas de busqueda con JavLibrary ni instaladores.
           - No se modificaron los ejecutables de la RC1 ni el proyecto WebView2 original.
 
