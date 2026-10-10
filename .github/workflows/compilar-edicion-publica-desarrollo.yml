@@ -209,7 +209,7 @@ jobs:
           if (!$passed) { throw "No paso la prueba de arranque Perl desde fuentes" }
 
   registrar-resultado:
-    needs: [launcher, host-webview2, paquete-portable]
+    needs: [launcher, host-webview2]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -227,7 +227,7 @@ jobs:
 
           - Dos lanzadores Go 1.23.2 para Windows x64: pruebas unitarias y compilacion completadas.
           - Variante separada del host WebView2 con .NET 8 para Windows x64: compilacion completada.
-          - Se genero un ZIP portatil de desarrollo privado con los dos lanzadores Go nuevos y el host WebView2 aislado, junto a dependencias originales de RC1; retencion de 7 dias. No es una release.
+          - El empaquetado portatil privado se ejecuta en un job separado y debe comprobarse independientemente; no es una release.
           - No se ejecutaron pruebas de busqueda con JavLibrary ni instaladores.
           - No se modificaron los ejecutables de la RC1 ni el proyecto WebView2 original.
 
