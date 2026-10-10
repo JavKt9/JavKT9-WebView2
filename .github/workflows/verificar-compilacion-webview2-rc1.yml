@@ -63,7 +63,7 @@ jobs:
 
           **No se ha comprobado equivalencia con el EXE RC1 ni funcionamiento de WebView2 con JavLibrary.** Tampoco se han compilado `JavKT9.exe`, `GCJavBridgeLauncher.exe` ni el instalador.
           '@
-          $report += "`n- SHA-256 del EXE generado: `$hash`.`n"
+          $report += "`n- SHA-256 del EXE generado: $hash.`n"
           Set-Content -LiteralPath "docs/VERIFICACION_COMPILACION_WEBVIEW2_RC1.md" -Value $report -Encoding utf8
           git add -- docs/VERIFICACION_COMPILACION_WEBVIEW2_RC1.md
           git config user.name "github-actions[bot]"
