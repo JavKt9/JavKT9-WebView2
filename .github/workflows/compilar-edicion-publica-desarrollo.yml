@@ -137,6 +137,7 @@ jobs:
           python3 tools/armar_portable_publica_desarrollo.py \
             --rc1 "$RUNNER_TEMP/JAVkt9_RC1.zip" \
             --launcher build/launcher/JavKT9.exe \
+            --bridge-launcher build/launcher/GCJavBridgeLauncher.exe \
             --host build/WebView2Host \
             --repo . \
             --output build/JAVkt9_Edicion_Publica_Desarrollo_PORTABLE_PRIVADO.zip
@@ -226,7 +227,7 @@ jobs:
 
           - Dos lanzadores Go 1.23.2 para Windows x64: pruebas unitarias y compilacion completadas.
           - Variante separada del host WebView2 con .NET 8 para Windows x64: compilacion completada.
-          - Se genero un ZIP portatil de desarrollo privado con el nuevo lanzador Go y el host WebView2 aislado, junto a dependencias originales de RC1; retencion de 7 dias. No es una release.
+          - Se genero un ZIP portatil de desarrollo privado con los dos lanzadores Go nuevos y el host WebView2 aislado, junto a dependencias originales de RC1; retencion de 7 dias. No es una release.
           - No se ejecutaron pruebas de busqueda con JavLibrary ni instaladores.
           - No se modificaron los ejecutables de la RC1 ni el proyecto WebView2 original.
 
