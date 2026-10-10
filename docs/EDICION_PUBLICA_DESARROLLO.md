@@ -42,6 +42,14 @@ En Linux se verificó la compilación cruzada para Windows/amd64 y las pruebas u
 
 El workflow `.github/workflows/compilar-edicion-publica-desarrollo.yml` compila el lanzador Go y el host WebView2 separado en Windows, ejecuta las pruebas del lanzador y guarda **artefactos privados de desarrollo**, sin publicarlos como release.
 
+## Alternativa para retirar el PAR original
+
+El nuevo lanzador también acepta `--source-mode`: en vez de ejecutar `bin/gcstar.exe` (PAR), invoca `bin/wperl.exe bin/gcstar` y usa el script Perl recuperado de la RC1. El ZIP portátil privado incorpora el acceso `JavKT9-Fuentes.cmd` para este modo.
+
+**Este modo está compilado y probado a nivel unitario, pero todavía NO está validado en Windows con GTK y WebView2.** Si la ejecución directa desde fuentes funciona, podríamos preparar la distribución pública sin incluir el PAR antiguo y eliminar así una parte importante del bloqueo de compilación. No se afirma todavía que ambas variantes sean funcionalmente equivalentes.
+
+El workflow privado intenta armar `JAVkt9_Edicion_Publica_Desarrollo_PORTABLE_PRIVADO.zip` con los nuevos ejecutables, conserva el motor GCstar original para comparación y **no publica una release**.
+
 ## Pendientes para una descarga pública funcional
 
 1. Comprobar en Windows que el nuevo lanzador y el host WebView2 separado inician el programa y que la captura del Bridge coincide con el perfil aislado. **No usar la RC1 instalada para estas pruebas.**
