@@ -17,7 +17,7 @@ El lanzador:
 - Registra errores en `%LOCALAPPDATA%\\JavKT9-Publica-Desarrollo\\Launcher\\errores.log`; en Windows muestra un mensaje.
 - No modifica ni reemplaza instalaciones y no ejecuta instaladores.
 
-El plugin `GCJavLibrary.pm` ya inicia `GCJavLibraryBridge.pl` con `wperl.exe`. Por ello **no se necesita incluir el antiguo `GCJavBridgeLauncher.exe`** en la futura edición pública, siempre que las pruebas de integración lo confirmen.
+El plugin `GCJavLibrary.pm` inicia `GCJavLibraryBridge.pl` directamente con `wperl.exe`. **Pero** una revisión más amplia detectó que `GCMainWindow.pm` también contiene una función heredada que busca `bin/GCJavBridgeLauncher.exe`. Por compatibilidad, incorporamos **`src/public-bridge-launcher/`**, un segundo lanzador Go nuevo y libre, que inicia el mismo script Perl. El paquete privado **sustituye los dos ejecutables Go antiguos**, sin incluir sus binarios originales. La nueva implementación todavía requiere validación funcional en Windows.
 
 ## Host WebView2 de la edición pública (copia separada)
 
@@ -44,7 +44,7 @@ El workflow `.github/workflows/compilar-edicion-publica-desarrollo.yml` compila 
 
 ## Alternativa para retirar el PAR original
 
-El nuevo lanzador también acepta `--source-mode`: en vez de ejecutar `bin/gcstar.exe` (PAR), invoca `bin/wperl.exe bin/gcstar` y usa el script Perl recuperado de la RC1. El ZIP portátil privado incorpora el acceso `JavKT9-Fuentes.cmd` para este modo.
+El nuevo lanzador principal también acepta `--source-mode`: en vez de ejecutar `bin/gcstar.exe` (PAR), invoca `bin/wperl.exe bin/gcstar` y usa el script Perl recuperado de la RC1. El ZIP portátil privado incorpora el acceso `JavKT9-Fuentes.cmd` para este modo.
 
 **Este modo está compilado y probado a nivel unitario, pero todavía NO está validado en Windows con GTK y WebView2.** Si la ejecución directa desde fuentes funciona, podríamos preparar la distribución pública sin incluir el PAR antiguo y eliminar así una parte importante del bloqueo de compilación. No se afirma todavía que ambas variantes sean funcionalmente equivalentes.
 
