@@ -1,5 +1,7 @@
 # JAVkt9
 
+> **Rama privada de auditoría `fuentes-rc1-auditoria` (0.8.1 RC1):** aquí se recuperaron 1.115 fuentes Perl y se documentaron licencias y compilación parcial. **No instalar ni publicar esta rama como una versión completa.** Ver [estado de fuentes](docs/ESTADO_PUBLICACION_RC1.md), [auditoría de licencias](docs/AUDITORIA_LICENCIAS_RC1.md) y [compilación RC1](docs/COMPILACION_RC1.md). El texto histórico sobre Beta 1 que sigue debajo corresponde a la rama principal original.
+
 **JAVkt9** es un gestor de colecciones JAV para Windows, basado en GCstar y adaptado para consultar metadatos y portadas mediante un flujo WebView2 integrado.
 
 > Estado actual: **0.8.0 Beta 1**. Es una versión beta pública: puede contener errores y el acceso a fuentes externas puede verse afectado por cambios del sitio, consentimiento o protecciones anti-bot.
