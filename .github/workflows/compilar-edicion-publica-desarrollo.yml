@@ -11,7 +11,7 @@ on:
       - .github/workflows/compilar-edicion-publica-desarrollo.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   launcher:
@@ -21,7 +21,7 @@ jobs:
       - name: Checkout rama aislada
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          persist-credentials: true
       - name: Instalar Go 1.23.2
         uses: actions/setup-go@v5
         with:
@@ -78,3 +78,39 @@ jobs:
           path: build/WebView2Host/
           if-no-files-found: error
           retention-days: 7
+
+  registrar-resultado:
+    needs: [launcher, host-webview2]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout rama privada
+        uses: actions/checkout@v4
+      - name: Guardar estado de compilacion de los dos proyectos
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "edicion-publica-desarrollo"
+          cat > docs/RESULTADO_COMPILACION_PUBLICA_DESARROLLO.md <<'EOF'
+          # Compilacion de la edicion publica — rama privada
+
+          **RESULTADO: CORRECTO EN GITHUB ACTIONS.**
+
+          - Lanzador Go 1.23.2 para Windows x64: pruebas unitarias y compilacion completadas.
+          - Variante separada del host WebView2 con .NET 8 para Windows x64: compilacion completada.
+          - Se generaron artefactos de desarrollo privados (retencion de 7 dias), no una release.
+          - No se ejecutaron pruebas de busqueda con JavLibrary ni instaladores.
+          - No se modificaron los ejecutables de la RC1 ni el proyecto WebView2 original.
+
+          **NO PUBLICAR TODAVIA:** pendiente validacion funcional Windows, licencias de recursos/dependencias y fuentes/receta del PAR.
+          EOF
+          git add docs/RESULTADO_COMPILACION_PUBLICA_DESARROLLO.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --cached --quiet; then
+            echo "Informe ya actualizado."
+            exit 0
+          fi
+          git commit -m "ci: confirmar compilacion aislada de nueva edicion publica"
+          git pull --rebase origin edicion-publica-desarrollo
+          git push origin HEAD:edicion-publica-desarrollo
