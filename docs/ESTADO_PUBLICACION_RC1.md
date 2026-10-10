@@ -13,6 +13,8 @@ La RC1 ya funcionaba con WebView2 y búsquedas de películas según las pruebas 
 - Escaneo automático Gitleaks de `src/perl/`: sin coincidencias detectadas (no equivale a una auditoría completa).
 - Proyecto C# WebView2 en `src/JavKT9WebView2/`, ya presente en `main`. **No está demostrada** su equivalencia reproducible con el ejecutable RC1.
 
+**Nueva identificación técnica:** `JavKT9.exe` y `GCJavBridgeLauncher.exe` son binarios **Go 1.23.2**. Ver [auditoría de los lanzadores](LANZADORES_GO_RC1.md). La comprobación automática de hashes de las 1.115 fuentes Perl pasó en GitHub Actions; la compilación aislada del host WebView2 también generó un EXE en Windows, pero **no** acredita que sea idéntico al distribuido en RC1.
+
 ## Pendiente antes de publicar
 
 1. Recuperar los proyectos fuente originales de `JavKT9.exe` y `GCJavBridgeLauncher.exe`.
