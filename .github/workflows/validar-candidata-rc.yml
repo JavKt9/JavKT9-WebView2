@@ -1,0 +1,69 @@
+name: Validar futura RC publica sin instalar
+
+on:
+  pull_request:
+    branches:
+      - fuentes-rc1-auditoria
+    paths:
+      - src/public-launcher/**
+      - src/public-bridge-launcher/**
+      - src/public-webview2/**
+      - tools/**
+      - .github/workflows/validar-candidata-rc.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go-windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Probar y compilar lanzador principal
+        shell: pwsh
+        working-directory: src/public-launcher
+        run: |
+          go test ./...
+          if ($LASTEXITCODE -ne 0) { throw "Fallo go test principal" }
+          $env:CGO_ENABLED = '0'
+          go build -trimpath -ldflags="-H windowsgui" -o "$env:RUNNER_TEMP/JavKT9.exe" .
+          if ($LASTEXITCODE -ne 0) { throw "Fallo go build principal" }
+      - name: Probar y compilar lanzador Bridge
+        shell: pwsh
+        working-directory: src/public-bridge-launcher
+        run: |
+          go test ./...
+          if ($LASTEXITCODE -ne 0) { throw "Fallo go test Bridge" }
+          $env:CGO_ENABLED = '0'
+          go build -trimpath -ldflags="-H windowsgui" -o "$env:RUNNER_TEMP/GCJavBridgeLauncher.exe" .
+          if ($LASTEXITCODE -ne 0) { throw "Fallo go build Bridge" }
+
+  webview2-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compilar host publico separado
+        shell: pwsh
+        run: |
+          dotnet restore src/public-webview2/JavKT9WebView2.Public.csproj -r win-x64
+          if ($LASTEXITCODE -ne 0) { throw "Fallo dotnet restore" }
+          dotnet publish src/public-webview2/JavKT9WebView2.Public.csproj -c Release -r win-x64 --self-contained true --no-restore -o "$env:RUNNER_TEMP/WebView2Host"
+          if ($LASTEXITCODE -ne 0) { throw "Fallo dotnet publish" }
+
+  paquete-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verificar exclusiones y reemplazos de binarios
+        run: python3 -m unittest discover -s tools -p 'test_armar_portable_publica_desarrollo.py' -v
