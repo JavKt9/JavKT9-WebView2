@@ -27,6 +27,16 @@ El **fuente Go exacto del instalador** está en `src/instalador-rc1-github/main.
 
 **Importante:** las pruebas del usuario fueron con el **instalador experimental más parches**. El **Setup integrado nuevo** se compiló y pasó verificación de contenido, pero **todavía no se instaló en Windows**. No afirmar que ese nuevo instalador pasó una prueba de instalación real.
 
+## Comprobaciones de compilación local
+
+- **5 pruebas Go** del lanzador nuevo: correctas.
+- **2 pruebas Go** de BridgeLauncher: correctas.
+- Compilación Windows x64 de ambos lanzadores desde los fuentes disponibles: correcta.
+- Compilación Windows x64 del stub de Setup: correcta.
+- **6.221 entradas** del EXE final: integridad ZIP CRC correcta.
+- Se verificó que los **siete archivos de corrección** incluidos en el Setup son **idénticos byte a byte** a los de los últimos parches aprobados por el usuario.
+- El compilado de lanzador desde los fuentes recuperados puede diferir en bytes del binario empaquetado por opciones/ruta de compilación; **no se declara reconstrucción byte idéntica de los lanzadores**. El código Perl integrado sí coincide exactamente con los blobs fuente subidos a GitHub.
+
 ## Instalación
 
 - Windows x64, preferentemente Windows 10/11.
