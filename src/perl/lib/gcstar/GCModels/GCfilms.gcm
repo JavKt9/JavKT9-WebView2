@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <collection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 xsi:noNamespaceSchemaLocation="https://gitlab.com/GCstar/GCstar/raw/Test/gcstar/share/gcstar/schemas/gcm-revision5.xsd"
 name="GCfilms">
@@ -342,20 +342,23 @@ name="GCfilms">
 
 			<item type="notebook" expand="true">
 				<!-- Ficha principal: versión más compacta, con menos espacio vertical -->
-				<item type="tab" value="info" title="General">
-					<item type="table" rows="4" cols="4" expand="false">
-						<item type="label" for="original" row="0" col="0"/>
-						<item type="value" for="original" row="0" col="1" colspan="3" expand="true"/>
-
-						<item type="value" for="image" row="1" col="0" rowspan="3" width="110" height="145"/>
-						<item type="label" for="date" row="1" col="1"/>
-						<item type="value" for="date" row="1" col="2" colspan="2" expand="true"/>
-
-						<item type="label" for="director" row="2" col="1"/>
-						<item type="value" for="director" row="2" col="2" colspan="2" expand="true"/>
-
-						<item type="label" for="time" row="3" col="1"/>
-						<item type="value" for="time" row="3" col="2" colspan="2" expand="true"/>
+				<item type="tab" value="info" title="General" compact="true">
+					<!-- El titulo ocupa una linea independiente: evita que el ancho de su
+					     campo expanda la columna de etiquetas de fecha/director/duracion. -->
+					<item type="line">
+						<item type="label" for="original"/>
+						<item type="value" for="original" expand="true"/>
+					</item>
+					<!-- Caratula a la izquierda, etiquetas junto a la foto y valores
+					     sin la columna enorme que generaba el grid de 4 columnas. -->
+					<item type="table" rows="3" cols="3" expand="false">
+						<item type="value" for="image" row="0" col="0" rowspan="3" width="110" height="145"/>
+						<item type="label" for="date" row="0" col="1"/>
+						<item type="value" for="date" row="0" col="2" expand="true"/>
+						<item type="label" for="director" row="1" col="1"/>
+						<item type="value" for="director" row="1" col="2" expand="true"/>
+						<item type="label" for="time" row="2" col="1"/>
+						<item type="value" for="time" row="2" col="2" expand="true"/>
 					</item>
 
 					<item type="expander" title="Genre" collapsed="%genre%" expand="false" expanded="true">
@@ -364,7 +367,7 @@ name="GCfilms">
 					<item type="expander" title="Actors" collapsed="%actors%" expand="false" expanded="true">
 						<item type="value" for="actors"/>
 					</item>
-					<item type="expander" title="Enlaces de modelos" collapsed="%modelLinks%" expand="false">
+					<item type="expander" title="Enlaces de modelos" collapsed="%modelLinks%" expand="false" expanded="true">
 						<item type="value" for="modelLinks"/>
 					</item>
 				</item>
@@ -452,7 +455,7 @@ name="GCfilms">
 			<item type="expander" title="Actors" collapsed="%actors%" expanded="true">
 				<item type="value" for="actors"/>
 			</item>
-			<item type="expander" title="Enlaces de modelos" collapsed="%modelLinks%">
+			<item type="expander" title="Enlaces de modelos" collapsed="%modelLinks%" expanded="true">
 				<item type="value" for="modelLinks"/>
 			</item>
 			<item type="line" expand="true">
@@ -501,7 +504,7 @@ name="GCfilms">
 			<item type="expander" title="Actors" collapsed="%actors%" expanded="true">
 				<item type="value" for="actors"/>
 			</item>
-			<item type="expander" title="Enlaces de modelos" collapsed="%modelLinks%">
+			<item type="expander" title="Enlaces de modelos" collapsed="%modelLinks%" expanded="true">
 				<item type="value" for="modelLinks"/>
 			</item>
 			<item type="line" expand="true">
