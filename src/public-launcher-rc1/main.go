@@ -156,6 +156,14 @@ func launch(root, appData, localData string, env []string, args []string, source
 		_ = cleanupOwnBridge(root)
 	}
 	if waitErr != nil {
+		// El GCstar empaquetado puede devolver 255 al cerrar su ventana GTK.
+		// Registrar el estado para diagnostico en lugar de mostrar un dialogo
+		// molesto despues del cierre. Los demas errores siguen siendo visibles.
+		var exitErr *exec.ExitError
+		if errors.As(waitErr, &exitErr) && exitErr.ExitCode() == 255 {
+			logGCstarExit(isolatedLocal, waitErr)
+			return nil
+		}
 		return fmt.Errorf("GCstar terminó: %w", waitErr)
 	}
 	return nil
@@ -198,4 +206,14 @@ func shutdownBridge(token string) error {
 		return errors.New("Bridge ajeno o sin autorizacion de cierre")
 	}
 	return nil
+}
+
+// Conserva evidencia del estado 255 sin bloquear el cierre de la ventana.
+func logGCstarExit(runtimeDir string, cause error) {
+	logPath := filepath.Join(runtimeDir, "JavKT9", "gcstar-exit.log")
+	if err := os.MkdirAll(filepath.Dir(logPath), 0700); err != nil { return }
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil { return }
+	defer f.Close()
+	_, _ = fmt.Fprintf(f, "%s GCstar terminó después de cerrar la aplicación: %v\n", time.Now().Format(time.RFC3339), cause)
 }
