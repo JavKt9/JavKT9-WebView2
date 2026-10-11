@@ -10,7 +10,9 @@ use File::Path qw(make_path);
 use POSIX qw(strftime);
 use LWP::UserAgent;
 
-my $VERSION = '2.3.0-webview2-cover-token';
+my $VERSION = '2.3.1-webview2-lifecycle';
+my $session_token = $ENV{JAVKT9_BRIDGE_SESSION} || '';
+my $shutdown_requested = 0;
 my %cfg = (port => 53118, wait_seconds => 90);
 my $conf = File::Spec->catfile(dirname(__FILE__), 'GCJavLibrary.conf');
 if (open(my $fh, '<:encoding(UTF-8)', $conf)) {
@@ -53,7 +55,12 @@ sub host_exe {
     for(@c){ return $_ if -f $_; }
     return '';
 }
-sub capture_path { my($code)=@_; return File::Spec->catfile($local,'JavKT9','WebView2Capture',"$code.html"); }
+# The original .NET WebView2 host resolves LocalApplicationData via
+# Environment.GetFolderPath(), not the isolated LOCALAPPDATA environment.
+# Read only the host capture from its real Windows LocalAppData directory.
+# Other Bridge caches and logs remain under the isolated profile.
+my $capture_local = $ENV{JAVKT9_WEBVIEW2_CAPTURE_BASE} || $local;
+sub capture_path { my($code)=@_; return File::Spec->catfile($capture_local,'JavKT9','WebView2Capture',"$code.html"); }
 sub cover_dir {
     my $d=File::Spec->catdir($local,'JavKT9','CoverCache');
     make_path($d) unless -d $d;
@@ -124,7 +131,15 @@ while(my $client=$server->accept()){
     $line =~ s/[\r\n]+$//; my($method,$target)=split /\s+/,$line,3;
     while(my $h=<$client>){ last if $h =~ /^\r?\n$/; }
     my($path,$qs)=split /\?/,$target||'/',2; my $q=query($qs);
-    if($method eq 'GET' && $path eq '/ping'){ response($client,200,'OK','text/plain; charset=UTF-8','OK'); }
+    if($method eq 'GET' && $path eq '/shutdown'){
+        my $provided = $q->{key} // '';
+        if (length($session_token) >= 32 && $provided eq $session_token) {
+            response($client,200,'OK','text/plain; charset=UTF-8','OK');
+            $shutdown_requested = 1;
+            logmsg('shutdown requested by matching launcher session');
+        } else { response($client,403,'Forbidden','text/plain; charset=UTF-8','Forbidden'); }
+    }
+    elsif($method eq 'GET' && $path eq '/ping'){ response($client,200,'OK','text/plain; charset=UTF-8','OK'); }
     elsif($method eq 'GET' && $path eq '/search'){ my $c=norm_code($q->{code}); response($client,200,'OK','text/html; charset=UTF-8',search_html($c)); }
     elsif($method eq 'GET' && $path eq '/begin'){
         my $c=norm_code($q->{code}); my $token=time().'-'.int(rand(1000000000));
@@ -139,5 +154,6 @@ while(my $client=$server->accept()){
     elsif($method eq 'GET' && $path eq '/version'){ response($client,200,'OK','application/json; charset=UTF-8','{"bridge_version":"'.$VERSION.'"}'); }
     else { response($client,404,'Not Found','text/plain; charset=UTF-8','Not Found'); }
     close $client;
+    last if $shutdown_requested;
     for my $t(keys %cache){ delete $cache{$t} if time()-($cache{$t}->{ts}||0)>300; }
 }

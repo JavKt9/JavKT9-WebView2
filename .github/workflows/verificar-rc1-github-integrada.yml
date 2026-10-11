@@ -1,0 +1,66 @@
+name: Verificar RC1 GitHub candidata integrada
+on:
+  push:
+    branches: [rc-0.8.1-github-candidata-integrada]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuentes-y-compilacion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+      - name: Probar lanzador Go RC1
+        working-directory: src/public-launcher-rc1
+        env:
+          GO111MODULE: 'off'
+        run: go test -v .
+      - name: Compilar lanzador Windows (sin recurso .syso externo)
+        working-directory: src/public-launcher-rc1
+        env:
+          GO111MODULE: 'off'
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags="-H windowsgui" -o "$RUNNER_TEMP/JavKT9.exe" .
+      - name: Probar y compilar BridgeLauncher Go
+        working-directory: src/public-bridge-launcher-rc1
+        env:
+          GO111MODULE: 'off'
+        run: |
+          go test -v .
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags="-H windowsgui" -o "$RUNNER_TEMP/GCJavBridgeLauncher.exe" .
+      - name: Compilar stub exacto del instalador integrado
+        working-directory: src/instalador-rc1-github
+        env:
+          GO111MODULE: 'off'
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags="-H windowsgui" -o "$RUNNER_TEMP/Setup_stub.exe" .
+      - name: Comprobar XML y claves antiguas
+        run: |
+          python - <<'PY'
+          import pathlib, re, xml.etree.ElementTree as ET
+          root = pathlib.Path('src/perl/lib/gcstar')
+          ET.parse(root / 'GCModels/GCfilms.gcm')
+          bridge = (root / 'GCPlugins/GCfilms/GCJavLibraryBridge.pl').read_text(encoding='utf-8-sig')
+          assert 'JAVKT9_WEBVIEW2_CAPTURE_BASE' in bridge
+          assert '/shutdown' in bridge
+          panel = (root / 'GCPanel.pm').read_text(encoding='utf-8-sig')
+          assert "set_fixed_width(36)" in panel
+          assert "JavKT9-expanders.txt" in panel
+          for file in root.rglob('*Themoviedb*.pm'):
+              content = file.read_bytes()
+              assert not re.search(rb'my\s+\$apiKey\s*=\s*["\x27][^"\x27]+["\x27]',content),file
+          print('XML, Bridge, favoritos y API keys: OK')
+          PY
+      - name: Advertir sobre validación final
+        run: |
+          echo "OK: fuentes compilables. Esto NO equivale a validar el EXE completo en Windows."
+          echo "Pendiente: fuente/receta PAR, avisos terceros, firma y carga de EXE como asset."
