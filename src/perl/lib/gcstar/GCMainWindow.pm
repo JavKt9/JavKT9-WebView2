@@ -4305,13 +4305,21 @@ $@");
         $self->_gcjavSetupModernUI;
         $self->refreshTitle;
 
-        my $iconPrefix = $ENV{GCS_SHARE_DIR}.'/icons/gcstar_';
-        my $pixbuf16 = Gtk3::Gdk::Pixbuf->new_from_file($iconPrefix.'16x16.png');
-        my $pixbuf32 = Gtk3::Gdk::Pixbuf->new_from_file($iconPrefix.'32x32.png');
-        my $pixbuf48 = Gtk3::Gdk::Pixbuf->new_from_file($iconPrefix.'48x48.png');
-        my $pixbuf64 = Gtk3::Gdk::Pixbuf->new_from_file($iconPrefix.'64x64.png');
-
-        Gtk3::Window::set_default_icon_list([$pixbuf16, $pixbuf32, $pixbuf48, $pixbuf64]);
+        # JAVkt9: icono de la aplicación, no los PNG heredados de GCstar.
+        # La ruta de instalación es <raiz>/share/gcstar y <raiz>/icons/JavKT9-window.png.
+        my $javIcon = File::Spec->catfile($ENV{GCS_SHARE_DIR}, '..', '..', 'icons', 'JavKT9-window.png');
+        my $iconLoaded = eval {
+            my $pixbuf = Gtk3::Gdk::Pixbuf->new_from_file($javIcon);
+            $self->set_icon($pixbuf);
+            Gtk3::Window::set_default_icon_list([$pixbuf]);
+            1;
+        };
+        if (!$iconLoaded) {
+            # Fallback seguro si falta el archivo o no hay decodificador ICO.
+            my $iconPrefix = $ENV{GCS_SHARE_DIR}.'/icons/gcstar_';
+            my @icons = map { Gtk3::Gdk::Pixbuf->new_from_file($iconPrefix.$_.'x'.$_.'.png') } (16,32,48,64);
+            Gtk3::Window::set_default_icon_list(\@icons);
+        }
 
         $self->signal_connect(delete_event => \&beforeDestroy, $self);
         $self->signal_connect(destroy => sub { Gtk3->main_quit; });
@@ -4335,9 +4343,14 @@ $@");
         $self->{pane} = new Gtk3::HPaned;
         $self->{listPane} = new Gtk3::VPaned;
 
-        $self->{pane}->set_position($self->{options}->split);
+        # JAVkt9: mantener un ancho razonable en la lista al maximizar.
+        # La preferencia del usuario se respeta si ya la ajusto manualmente.
+        my $savedListWidth = $self->{options}->split;
+        $savedListWidth = 320 if !$savedListWidth || $savedListWidth > 440;
+        $self->{pane}->set_position($savedListWidth);
         $self->{listPane}->set_position($self->{options}->listPaneSplit);
-        $self->{pane}->pack1($self->{listPane},1,0);
+        # resize=0: al maximizar crece el panel de detalle, NO la lista.
+        $self->{pane}->pack1($self->{listPane},0,0);
         $self->{listOptionsPanel} = new GCListOptionsPanel($self->{options}, $self);
         $self->{listPane}->pack2($self->{listOptionsPanel},1,1);
 
@@ -4479,10 +4492,22 @@ $@");
         $splash->setProgress(0.7) if $splash;
 
         $self->show_all;
+        # La ventana siempre abre maximizada; GTK debe calcular el ancho final
+        # de las listas después del cambio de tamaño de Windows.
+        $self->maximize if $^O =~ /win32/i;
 
         $self->checkDisplayed;
         $self->checkView;
         $self->checkTransform;
+        if ($^O =~ /win32/i) {
+            Glib::Timeout->add(180, sub {
+                eval {
+                    $self->{panel}->queue_resize if $self->{panel};
+                    $self->{pane}->queue_resize if $self->{pane};
+                };
+                return 0; # ejecutar una sola vez
+            });
+        }
 
         $self->{filterSearch} = new GCFilterSearch;
 
