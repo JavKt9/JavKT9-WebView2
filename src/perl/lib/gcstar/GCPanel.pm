@@ -352,6 +352,57 @@ use File::Spec ();
         return $widget;
     }
 
+    # JAVkt9: estado de expanders por modelo y panel, guardado en el perfil
+    # de esta edición (GCS_CONFIG_HOME), no en el archivo de películas.
+    sub _javExpanderStateFile
+    {
+        my $self = shift;
+        return undef if !$ENV{GCS_CONFIG_HOME};
+        return File::Spec->catfile($ENV{GCS_CONFIG_HOME}, 'JavKT9-expanders.txt');
+    }
+
+    sub _javExpanderKey
+    {
+        my ($self, $title) = @_;
+        my $model = $self->{model}->getName;
+        my $layout = $self->{layout}->{name} || 'form';
+        my $key = join('|', $model, $layout, $title);
+        $key =~ s/[\r\n\t]//g;
+        return $key;
+    }
+
+    sub _javReadExpanderStates
+    {
+        my $self = shift;
+        my %states;
+        my $file = $self->_javExpanderStateFile;
+        return \%states if !$file || !-f $file;
+        if (open(my $fh, '<:encoding(UTF-8)', $file)) {
+            while (my $line = <$fh>) {
+                $line =~ s/[\r\n]+$//;
+                my ($key, $state) = split(/\t/, $line, 2);
+                $states{$key} = $state if defined($key) && defined($state) && $state =~ /^[01]$/;
+            }
+            close $fh;
+        }
+        return \%states;
+    }
+
+    sub _javSaveExpanderState
+    {
+        my ($self, $key, $state) = @_;
+        my $file = $self->_javExpanderStateFile;
+        return if !$file;
+        my $states = $self->_javReadExpanderStates;
+        $states->{$key} = $state ? 1 : 0;
+        if (open(my $fh, '>:encoding(UTF-8)', $file)) {
+            foreach my $k (sort keys %$states) {
+                print $fh $k, "\t", $states->{$k}, "\n";
+            }
+            close $fh;
+        }
+    }
+
     sub createExpander
     {
         my ($self, $label) = @_;
@@ -807,7 +858,17 @@ use File::Spec ();
                 $widget->signal_connect('activate' => sub {
                     $self->setExpanderLabel($widget, 0);
                 });
-                $widget->set_expanded(1) if (defined $_->{expanded}) && ($_->{expanded} eq 'true');
+                # Priorizar la elección guardada; sin preferencias previas,
+                # respetar el valor expanded del modelo XML.
+                my $expanderKey = $self->_javExpanderKey($_->{title});
+                my $expanderStates = $self->_javReadExpanderStates;
+                my $initialExpanded = exists($expanderStates->{$expanderKey})
+                    ? $expanderStates->{$expanderKey}
+                    : ((defined $_->{expanded}) && ($_->{expanded} eq 'true'));
+                $widget->set_expanded($initialExpanded ? 1 : 0);
+                $widget->signal_connect('notify::expanded' => sub {
+                    $self->_javSaveExpanderState($expanderKey, $widget->get_expanded ? 1 : 0);
+                });
                 push @{$self->{expanders}}, $widget;
                 $box = new Gtk3::VBox(0,0);
                 $box->set_border_width($self->{halfMargin});
@@ -1521,8 +1582,13 @@ use File::Spec ();
                 my $column = Gtk3::TreeViewColumn->new;
                 $column->set_title('★');
                 $column->set_sizing('fixed');
-                $column->set_fixed_width(58);
-                $column->pack_start($renderer, 1);
+                # La columna de estrella es estrecha; nunca debe ocupar
+                # el ancho sobrante del TreeView.
+                $column->set_fixed_width(36);
+                $column->set_min_width(36);
+                $column->set_max_width(36);
+                $column->set_expand(0);
+                $column->pack_start($renderer, 0);
                 $column->set_cell_data_func($renderer, sub {
                     my ($col,$cell,$model,$iter)=@_;
                     my $name=$model->get($iter,0);
@@ -1537,6 +1603,13 @@ use File::Spec ();
                         : '<span foreground="#999999" size="x-large">☆</span>');
                 });
                 $list->append_column($column);
+                # Columna vacia flexible: absorbe el espacio libre, NO la estrella.
+                my $filler = Gtk3::TreeViewColumn->new;
+                $filler->set_sizing('fixed');
+                $filler->set_fixed_width(1);
+                $filler->set_expand(1);
+                $filler->pack_start(Gtk3::CellRendererText->new, 1);
+                $list->append_column($filler);
                 # P9: consume a click on the star BEFORE Gtk selects the row.
                 # Normal clicks on the actress name still select the row for Add/Remove.
                 $list->signal_connect('button-press-event' => sub {
@@ -1560,8 +1633,10 @@ use File::Spec ();
                         $store->set_favorite('actors',$name,!$active);
                         1;
                     } or warn "P9 actors toggle: $@";
+                    # El click en favoritos no debe dejar la fila entera azul.
+                    $tree->get_selection->unselect_all;
                     $tree->queue_draw;
-                    return 1; # do not pass this star click to TreeView selection
+                    return 1; # no seleccionar la fila por pulsar la estrella
                 });
             }
         }
