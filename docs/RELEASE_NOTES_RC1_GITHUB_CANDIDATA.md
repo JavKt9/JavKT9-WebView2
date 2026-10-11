@@ -11,7 +11,7 @@ Se preparó **un único instalador Windows x64** que integra las correcciones de
 | `JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_Setup_Windows_x64.exe` | **183.284.984 bytes** | `bb45bce1024598abc9688bc20abedc7083ac3ad103bd470ae619a11640f5ff88` |
 | `JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_CODIGO_DISPONIBLE.zip` | **7.074.042 bytes** | `fb67432582f6c0d0ed508550d664038bd4cd5e2c34500b6433a20e6c87597d46` |
 | `JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_PAYLOAD.zip` (intermedio, no distribuir) | **180.186.360 bytes** | `3743d34d005d9aecfbf4535f519619954e09d5d77392a377cfc80a8c11f6bc87` |
-| `JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_FUENTES.zip` (incluido en el EXE) | **7.128.XXX bytes aprox.** | `53e20b4ef9a9a7be33624527c8123ba47384e3507e119c3d18c339d5d299e104` |
+| `JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_FUENTES.zip` (incluido en el EXE) | **7.403.145 bytes** | `53e20b4ef9a9a7be33624527c8123ba47384e3507e119c3d18c339d5d299e104` |
 
 El **fuente Go exacto del instalador** está en `src/instalador-rc1-github/main.go`; su Git blob SHA-1 es `36b18aae8a1669614815e8ac8af0e7427f81d6c8`. El ZIP integrado en el Setup contiene **6.221 entradas**. Se verificaron los CRC y el SHA-256 del payload adjunto.
 
