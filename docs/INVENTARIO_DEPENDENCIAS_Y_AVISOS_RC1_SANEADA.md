@@ -37,6 +37,20 @@ En `bin/WebView2Host/JavKT9WebView2.deps.json` figuran:
 
 **Esto identifica las versiones, no certifica el derecho de redistribución.** El payload contiene además `WebView2Loader.dll` y `hostfxr.dll`; verificar avisos de Microsoft y la documentación de distribución antes de la release.
 
+## Documentación oficial para cerrar la parte Microsoft
+
+Microsoft explica que las aplicaciones WebView2 deben disponer del **WebView2 Runtime** en Windows y que el modo **Evergreen** compartido y actualizado es el recomendado para la mayoría de aplicaciones. El paquete RC1 examinado contiene bibliotecas del **SDK WebView2** y el host .NET, no una copia de 250 MB del Runtime fijo.
+
+- Distribución oficial WebView2: https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution
+- Modos Evergreen y Fixed Version: https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/evergreen-vs-fixed-version
+- Condiciones oficiales de bibliotecas .NET, incluidas condiciones sobre código redistribuible y avisos de terceros: https://dotnet.microsoft.com/en-us/dotnet_library_license.htm
+
+**Acción concreta:** documentar que WebView2 Runtime es un requisito del equipo, no prometer que viene dentro del instalador; conservar avisos aplicables del SDK y .NET. No afirmar que una página general cubre automáticamente cada DLL incluida: confirmar las condiciones específicas de las versiones empaquetadas.
+
+## Código Go exacto del Setup saneado
+
+Se incorporó `src/instalador-rc1-saneado/main.go` en una carpeta independiente del instalador original. Su Git blob SHA-1 `bc152a0e59e9e3c63c773a88c117a6dd842d5aa4` **coincide con el fuente local que generó el Setup saneado**. El prefijo EXE compilado tiene **3.098.624 bytes** y SHA-256 `2d6dbfecbb318b0608cec7b9fb64a3ec99d8f2ee695eff83a7876032dfa03633`; coincide con los primeros bytes del Setup final. Así queda cerrada la trazabilidad del **instalador saneado**, no de los lanzadores originales.
+
 ## Resultado sobre cabeceras del código Perl recuperado
 
 Se examinaron los primeros 2.500 bytes de **1.081 archivos `.pm` y `.pl`** dentro del ZIP de fuentes que acompaña a este mismo instalador:
