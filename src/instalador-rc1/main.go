@@ -26,7 +26,7 @@ const (
  installFolder = "JAVkt9-081-RC1-Instalada"
  uninstallExe = "Desinstalar-JAVkt9.exe"
  shortcutName = "JAVkt9 0.8.1 RC1 Candidata.lnk"
- registryKey = \`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\JAVkt9-081-RC1-Candidata\`
+ registryKey = `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\JAVkt9-081-RC1-Candidata`
  zipPrefix = "JAVkt9_0.8.1_RC1_PORTABLE/"
  zipSize int64 = 165179057
  zipSHA256 = "450ac674047e8df400fcfb242d25a0e4f5253f4cf664692b0ba0471028eb8e46"
@@ -161,7 +161,7 @@ func createUninstaller(src *os.File, size int64, path string) error {
 func shortcut(dest, roaming string, create bool) error {
  start := filepath.Join(roaming,"Microsoft","Windows","Start Menu","Programs",shortcutName)
  if !create { err:=os.Remove(start); if os.IsNotExist(err) { return nil }; return err }
- script := fmt.Sprintf(\`$ErrorActionPreference='Stop'; $w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut('%s'); $s.TargetPath='%s'; $s.WorkingDirectory='%s'; $s.IconLocation='%s'; $s.Description='JAVkt9 0.8.1 RC1 candidata'; $s.Save()\`, psQuote(start),psQuote(filepath.Join(dest,"JavKT9.exe")),psQuote(dest),psQuote(filepath.Join(dest,"icons","GCJav.ico")))
+ script := fmt.Sprintf(`$ErrorActionPreference='Stop'; $w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut('%s'); $s.TargetPath='%s'; $s.WorkingDirectory='%s'; $s.IconLocation='%s'; $s.Description='JAVkt9 0.8.1 RC1 candidata'; $s.Save()`, psQuote(start),psQuote(filepath.Join(dest,"JavKT9.exe")),psQuote(dest),psQuote(filepath.Join(dest,"icons","GCJav.ico")))
  return powerShell(script,false)
 }
 
@@ -172,7 +172,7 @@ func registerUninstall(dest string) error {
   {"Publisher","REG_SZ","JAVkt9 / GCstar contributors"},
   {"InstallLocation","REG_SZ",dest},
   {"DisplayIcon","REG_SZ",filepath.Join(dest,"JavKT9.exe")},
-  {"UninstallString","REG_SZ",\`"\`+filepath.Join(dest,uninstallExe)+\`"\`},
+  {"UninstallString","REG_SZ",`"`+filepath.Join(dest,uninstallExe)+`"`},
   {"NoModify","REG_DWORD","1"},
   {"NoRepair","REG_DWORD","1"},
  }
@@ -198,7 +198,7 @@ func uninstall(exe string) error {
  _=cmd.Run()
  // Windows does not allow a running EXE to delete itself. A separate hidden
  // PowerShell process waits for this uninstaller to exit and then removes it.
- script:=fmt.Sprintf(\`$ErrorActionPreference='Stop'; $parentProcessId=%d; for($i=0;$i -lt 120;$i++){if(-not (Get-Process -Id $parentProcessId -ErrorAction SilentlyContinue)){break}; Start-Sleep -Milliseconds 250}; Remove-Item -LiteralPath '%s' -Recurse -Force\`,os.Getpid(),psQuote(root))
+ script:=fmt.Sprintf(`$ErrorActionPreference='Stop'; $parentProcessId=%d; for($i=0;$i -lt 120;$i++){if(-not (Get-Process -Id $parentProcessId -ErrorAction SilentlyContinue)){break}; Start-Sleep -Milliseconds 250}; Remove-Item -LiteralPath '%s' -Recurse -Force`,os.Getpid(),psQuote(root))
  if err:=powerShell(script,true);err!=nil { return err }
  message("Desinstalar JAVkt9 RC1 candidata","Se inició la desinstalación. La carpeta se quitará unos segundos después de cerrar este mensaje. Los datos personales y otras versiones quedan intactos.",0x40)
  return nil
