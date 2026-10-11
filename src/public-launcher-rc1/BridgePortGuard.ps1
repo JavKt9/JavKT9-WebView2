@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$Root)
+﻿param([Parameter(Mandatory=$true)][string]$Root)
 $ErrorActionPreference = 'Stop'
 $bin = [IO.Path]::GetFullPath((Join-Path $Root 'bin\wperl.exe'))
 $script = [IO.Path]::GetFullPath((Join-Path $Root 'lib\gcstar\GCPlugins\GCfilms\GCJavLibraryBridge.pl'))
