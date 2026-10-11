@@ -45,6 +45,18 @@ jobs:
         run: |
           python installer-rc1-github/extract_candidate.py "build-rc1/JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_Setup_Windows_x64.exe" "installer-rc1-github/Payload"
           if ($LASTEXITCODE -ne 0) { throw "El payload no pasó verificación" }
+      - name: Compilar lanzador RC1 con cierre sin alerta 255
+        shell: pwsh
+        run: |
+          Push-Location src/public-launcher-rc1
+          try {
+            $env:GO111MODULE = "off"
+            go test .
+            if ($LASTEXITCODE -ne 0) { throw "Fallaron pruebas del lanzador" }
+            go build -trimpath -ldflags="-s -w -H windowsgui" -o "../../installer-rc1-github/Payload/JavKT9.exe" .
+            if ($LASTEXITCODE -ne 0) { throw "Fallo la compilacion del lanzador RC1" }
+          } finally { Pop-Location }
+          if (!(Test-Path "installer-rc1-github/Payload/JavKT9.exe")) { throw "Falta el lanzador corregido" }
       - name: Instalar Inno Setup 6
         shell: pwsh
         run: |
@@ -68,7 +80,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $exe = "output-rc1-github/JAVkt9-0.8.1-RC1-GitHub-Setup-Windows-x64.exe"
-          $assetName = "JAVkt9_0.8.1_RC1_INNO_Setup_Program_Files_Windows_x64.exe"
+          $assetName = "JAVkt9_0.8.1_RC1_INNO_Setup_Cierre_Corregido_Windows_x64.exe"
           $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           $releases = gh api "repos/${{ github.repository }}/releases?per_page=100" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { throw "No se pudieron consultar las releases" }
