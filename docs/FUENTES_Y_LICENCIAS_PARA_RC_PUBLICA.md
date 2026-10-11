@@ -10,7 +10,7 @@
 | Licencia y créditos GCstar | GNU GPL v2 completa y avisos del proyecto | `LICENSE`, `NOTICE.md` |
 | Proyecto C# WebView2 | Código disponible y compilación en Windows validada; no acreditada identidad binaria con RC1 | `src/JavKT9WebView2/` |
 | Lanzadores Go **nuevos** | Dos proyectos fuente creados, sin equivalencia funcional certificada con los binarios RC1 | Rama `edicion-publica-desarrollo`: `src/public-launcher/`, `src/public-bridge-launcher/` |
-| Instalador Go **nuevo** | Fuente entregada como archivo separado de la candidata, aún no incorporada a este repositorio | `JAVkt9_0.8.1_RC1_Setup_Codigo_Fuente.zip` |
+| Instalador Go **nuevo** | **Fuente exacta incorporada y recompilación idéntica byte por byte al stub de la RC1** | `src/instalador-rc1/main.go` |
 
 ## Pendientes concretos (sin repetir pruebas funcionales)
 
