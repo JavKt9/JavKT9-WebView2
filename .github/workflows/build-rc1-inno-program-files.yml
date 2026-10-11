@@ -61,12 +61,35 @@ jobs:
           if (!(Test-Path $exe)) { throw "No se generó el Setup Inno" }
           Get-FileHash $exe -Algorithm SHA256 | Format-List | Out-File "output-rc1-github/SHA256.txt"
           Get-Item $exe | Select-Object Name,Length | Format-List
-      - name: Guardar EXE para descarga privada
-        uses: actions/upload-artifact@v4
-        with:
-          name: JAVkt9-0.8.1-RC1-Inno-Setup-Program-Files
-          path: |
-            output-rc1-github/JAVkt9-0.8.1-RC1-GitHub-Setup-Windows-x64.exe
-            output-rc1-github/SHA256.txt
-          if-no-files-found: error
-          retention-days: 30
+      - name: Guardar nuevo EXE en la release borrador (sin publicar)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = "output-rc1-github/JAVkt9-0.8.1-RC1-GitHub-Setup-Windows-x64.exe"
+          $assetName = "JAVkt9_0.8.1_RC1_INNO_Setup_Program_Files_Windows_x64.exe"
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $releases = gh api "repos/${{ github.repository }}/releases?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "No se pudieron consultar las releases" }
+          $release = $releases | Where-Object { $_.tag_name -eq "v0.8.1-rc1" } | Select-Object -First 1
+          if (!$release -or !$release.draft) { throw "La release RC1 debe seguir en borrador" }
+          $existing = $release.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
+          if ($existing) {
+            if ($existing.digest -ne "sha256:$hash") { throw "Ya existe otro asset con el mismo nombre y hash distinto" }
+            Write-Host "Asset ya subido con hash verificado: $assetName"
+            exit 0
+          }
+          $url = "https://uploads.github.com/repos/${{ github.repository }}/releases/$($release.id)/assets?name=$assetName"
+          & curl.exe --fail-with-body --silent --show-error --retry 2 --connect-timeout 30 -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H "Accept: application/vnd.github+json" -H "Content-Type: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" --data-binary "@$exe" --output "build-rc1/upload-response.json" $url
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content "build-rc1/upload-response.json" -ErrorAction SilentlyContinue
+            throw "Fallo subida del EXE a la release borrador"
+          }
+          $uploaded = Get-Content "build-rc1/upload-response.json" -Raw | ConvertFrom-Json
+          if ($uploaded.name -ne $assetName -or $uploaded.state -ne "uploaded" -or $uploaded.digest -ne "sha256:$hash") {
+            throw "La API no confirmó nombre, estado y SHA-256 del EXE"
+          }
+          Write-Host "OK: nuevo instalador Inno guardado en borrador; NO publicado."
+          Write-Host "Nombre: $assetName"
+          Write-Host "SHA-256: $hash"
