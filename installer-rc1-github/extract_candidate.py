@@ -35,7 +35,8 @@ REQUIRED = (
 )
 
 def extract(exe: Path, output: Path) -> None:
-    digest = hashlib.file_digest(exe.open("rb"), "sha256").hexdigest()
+    with exe.open("rb") as input_file:
+        digest = hashlib.file_digest(input_file, "sha256").hexdigest()
     if digest != EXPECTED_EXE_SHA256:
         raise ValueError("El EXE de origen no coincide con la candidata RC1 validada: " + digest)
     if output.exists() and any(output.iterdir()):
@@ -54,7 +55,7 @@ def extract(exe: Path, output: Path) -> None:
             parts = PurePosixPath(name).parts
             if not parts or any(p in (".", "..") for p in parts) or "\\" in name or ":" in name:
                 raise ValueError("Ruta insegura: " + name)
-            if (info.external_attr >> 16) & stat.S_IFMT == stat.S_IFLNK:
+            if stat.S_IFMT(info.external_attr >> 16) == stat.S_IFLNK:
                 raise ValueError("Enlace simbolico no permitido: " + name)
             key = name.casefold()
             if key in seen:
