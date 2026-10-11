@@ -17,10 +17,18 @@ Se reutiliza el **EXE candidato integrado ya subido a la release borrador** (`JA
 
 El workflow `build-rc1-inno-program-files.yml` descarga ese asset **privado** desde la release `v0.8.1-rc1`, instala Inno Setup y genera un nuevo instalador `JAVkt9-0.8.1-RC1-GitHub-Setup-Windows-x64.exe` como **artefacto privado de GitHub Actions**. No publica una release automáticamente.
 
-## Estado y próximos pasos
+## Resultado de compilación — 11 de octubre de 2026
 
-Este instalador se diseñó para corregir el problema señalado por el usuario. **No afirmar compilación ni prueba de instalación hasta verificar el workflow y probar el EXE nuevo en Windows.**
+**Compilación y subida a release borrador: EXITOSA.**
 
-Una vez comprobado, sustituir en el borrador el asset del Setup Go anterior por el nuevo Setup Inno. **No publicar aún** hasta resolver la correspondencia de fuentes de `gcstar.exe` PAR y los avisos de licencias de terceros. No pedir que se vuelvan a probar las dos películas ni los ajustes de interfaz que ya fueron aprobados; basta una instalación de humo de este nuevo Setup.
+- [Workflow completado](https://github.com/JavKt9/JavKT9-WebView2/actions/runs/38182770423)
+- Archivo: `JAVkt9_0.8.1_RC1_INNO_Setup_Program_Files_Windows_x64.exe`
+- Tamaño: `111150088` bytes
+- SHA-256: `ca36d83d5818904e19e591655ec51f8e74560c0cb6817e929ee5eb0eca1e2880`
+- Ubicación: assets de la release **en borrador** `v0.8.1-rc1` (no publicada)
+- Se verificó el ZIP fuente, la ausencia de las claves TMDB antiguas y la presencia de correcciones del Bridge, interfaz y favoritos antes de compilar.
+- Se conservó el EXE candidato Go anterior como asset separado, sin borrarlo ni sustituirlo.
 
-El ícono del instalador y los accesos directos proceden de `installer/JavKT9.ico`, utilizado por las versiones anteriores.
+**Pendiente de prueba en Windows:** ejecutar **solo** este nuevo Setup Inno y confirmar que instala en `C:\Program Files\JavKT9-081-RC1-GitHub` y crea el acceso directo de escritorio. No hace falta repetir búsquedas ni pruebas de interfaz ya aprobadas.
+
+**Pendiente antes de publicación pública:** completar fuentes correspondientes de ejecutables antiguos y avisos de licencias de terceros. No publicar la release todavía.
