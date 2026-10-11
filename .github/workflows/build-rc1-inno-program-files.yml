@@ -24,9 +24,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Force -Path build-rc1 | Out-Null
-          gh release download v0.8.1-rc1 --pattern "JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_Setup_Windows_x64.exe" --dir build-rc1
-          if ($LASTEXITCODE -ne 0) { throw "No se pudo descargar el asset de la release privada" }
-          if (!(Test-Path "build-rc1/JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_Setup_Windows_x64.exe")) { throw "Falta el EXE integrado" }
+          # gh release download <tag> no encuentra releases en estado borrador.
+          # Consultamos la API autenticada y seleccionamos el asset por nombre,
+          # sin IDs inventados ni cambiar la visibilidad de la release.
+          $releases = gh api "repos/${{ github.repository }}/releases?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "No se pudieron consultar las releases" }
+          $release = $releases | Where-Object { $_.tag_name -eq "v0.8.1-rc1" } | Select-Object -First 1
+          if (!$release) { throw "No existe la release borrador RC1" }
+          $asset = $release.assets | Where-Object { $_.name -eq "JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_Setup_Windows_x64.exe" } | Select-Object -First 1
+          if (!$asset) { throw "No existe el asset integrado de la RC1" }
+          if ($asset.digest -ne "sha256:bb45bce1024598abc9688bc20abedc7083ac3ad103bd470ae619a11640f5ff88") { throw "SHA-256 inesperado en el asset de la release" }
+          $dest = "build-rc1/JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_Setup_Windows_x64.exe"
+          gh api "repos/${{ github.repository }}/releases/assets/$($asset.id)" -H "Accept: application/octet-stream" --output $dest
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo descargar el asset del borrador" }
+          if (!(Test-Path $dest)) { throw "Falta el EXE integrado" }
+          if ((Get-Item $dest).Length -ne 183284984) { throw "Tamaño incorrecto del asset descargado" }
       - name: Extraer contenido original verificado sin modificar JAVkt9
         shell: pwsh
         run: |
