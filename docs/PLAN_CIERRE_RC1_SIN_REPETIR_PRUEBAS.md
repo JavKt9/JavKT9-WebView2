@@ -10,6 +10,8 @@
 
 **Prioridad 3 — dependencias:** completar tabla de componentes y licencias para Perl/GTK, .NET/WebView2, recursos e imágenes. Los avisos GPLv2 y OFL 1.1 sí están presentes en el paquete original; falta cobertura de terceros.
 
+**Instalador Go — RESUELTO:** el código original de `Setup.exe` está en `src/instalador-rc1/main.go` y se reprodujo su stub **byte por byte** con Go 1.23.2. No confundirlo con los lanzadores originales de la aplicación.
+
 **Prioridad 4 — GitHub:** después de 1–3, adjuntar el instalador correcto y el paquete de fuentes/avisos a una release `Pre-release`; comprobar descarga pública desde una sesión sin acceso privado. La conexión de GitHub actual no permite adjuntar directamente el archivo EXE grande.
 
 ## Lo que no hay que hacer
