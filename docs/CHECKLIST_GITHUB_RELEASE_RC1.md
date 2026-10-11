@@ -22,9 +22,11 @@
 
 ## Pendiente antes de declarar distribución pública lista
 
+- [ ] Retirar o revocar, según corresponda, las cuatro claves antiguas aún presentes **dentro del Setup.exe**.
 - [ ] Determinar y cumplir las obligaciones de fuentes correspondientes de los binarios RC1, incluido PAR.
 - [ ] Completar avisos y derechos de redistribución de dependencias y recursos incluidos.
-- [ ] Comprobar que el archivo fuente del instalador está accesible para los destinatarios de la release.
+- [x] Incorporar el código fuente exacto del instalador en `src/instalador-rc1/main.go` y verificar su reconstrucción byte por byte.
+- [ ] Garantizar acceso público a esas fuentes cuando se publique la release.
 - [ ] Subir **el instalador EXE**, no solo el ZIP antiguo, como asset de GitHub Release.
 - [ ] Verificar desde sesión sin acceso al repositorio que el enlace de descarga es realmente público.
 - [ ] Decidir explícitamente si el repositorio se hará público y si la release dejará de ser borrador.
