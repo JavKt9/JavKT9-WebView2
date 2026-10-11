@@ -14,7 +14,7 @@
 
 ## Cómo saber si terminó
 
-**No confundir código subido con compilación completada.** Solo si aparece el archivo `docs/RESULTADO_SETUP_SANEADO_PRIVADO.md` generado por GitHub Actions se puede afirmar que el armado del Setup saneado se completó. Si el workflow falla, inspeccionar el paso fallido y corregir el generador, sin modificar el programa RC1 que ya funciona.
+**La compilación local del Setup saneado ya se completó y se verificó**: ver `docs/RESULTADO_COMPILACION_LOCAL_RC1_SANEADA.md`, con SHA-256 y 6.216 entradas. Su código Go exacto está en `src/instalador-rc1-saneado/main.go`. **El workflow de GitHub Actions es otro procedimiento:** no se debe dar por exitoso sin consultar sus resultados; si falla, no invalida el EXE local ya verificado.
 
 El instalador saneado es **una compilación distinta** de la probada. No afirmar que se probó su instalación en Windows.
 
