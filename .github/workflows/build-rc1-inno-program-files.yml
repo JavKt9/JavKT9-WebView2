@@ -9,7 +9,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # Las releases en borrador requieren acceso de escritura para lectura API.
+  contents: write
 
 jobs:
   inno-setup:
