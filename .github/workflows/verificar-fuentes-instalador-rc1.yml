@@ -1,0 +1,39 @@
+name: Verificar fuentes exactas del instalador RC1
+
+on:
+  push:
+    branches:
+      - rc-0.8.1-instalador-candidato
+    paths:
+      - src/instalador-rc1/**
+      - .github/workflows/verificar-fuentes-instalador-rc1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reproducir-stub:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout codigo fuente
+        uses: actions/checkout@v4
+      - name: Instalar Go 1.23.2
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Compilar stub del instalador sin modificar la RC1
+        shell: pwsh
+        run: |
+          $env:GOOS = 'windows'
+          $env:GOARCH = 'amd64'
+          $env:CGO_ENABLED = '0'
+          go build -trimpath -ldflags="-H windowsgui" -o "$env:RUNNER_TEMP/setup-verificacion.exe" "src/instalador-rc1/main.go"
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo compilar el instalador" }
+          $actual = (Get-FileHash "$env:RUNNER_TEMP/setup-verificacion.exe" -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = "add0797d3b19a6d1a01c3d1b009e42e9f82c9d3f44366d31e9fa77dd9e7c4259"
+          if ($actual -ne $expected) { throw "El ejecutable compilado no coincide con el stub RC1: $actual" }
+          Write-Output "FUENTES DEL INSTALADOR VERIFICADAS: stub identico byte por byte a RC1 candidata"
+          Write-Output "SHA256 $actual"
