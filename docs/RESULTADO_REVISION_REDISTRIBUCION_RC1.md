@@ -13,6 +13,14 @@
 - **472** archivos de host WebView2/.NET en `payload/bin/WebView2Host/`.
 - **348** archivos de recursos en `payload/share/gcstar/`.
 
+## Comprobación adicional sobre el instalador que se probó
+
+También se abrió directamente `JAVkt9_0.8.1_RC1_Setup_Candidata_Windows_x64.exe` como ZIP autoextraíble: contiene **6.216 entradas**. En esos archivos se confirmaron los mismos **cuatro literales no vacíos** de `$apiKey`. No es solo un hallazgo del ZIP anterior: **el instalador candidato actual también los contiene**. Los valores no se divulgaron.
+
+**Fuentes del instalador recuperadas y verificadas:** `src/instalador-rc1/main.go` coincide exactamente con el archivo original entregado en el ZIP de fuentes (Git blob SHA-1 `96949d9134d881815a0c263434a9c5d6d30e1b44`). Se recompiló con Go 1.23.2 para Windows x64, `-trimpath -ldflags="-H windowsgui"`, y el stub resultante de **3.098.624 bytes** coincidió **byte por byte** con el prefijo ejecutable del instalador probado. SHA-256 de ambos: `add0797d3b19a6d1a01c3d1b009e42e9f82c9d3f44366d31e9fa77dd9e7c4259`.
+
+**Resultado:** el código fuente del **instalador** ya no está pendiente. Esto **no resuelve** las fuentes de los dos lanzadores antiguos ni del PAR.
+
 ## Licencias encontradas dentro del paquete
 
 | Archivo | Hallazgo | Resultado |
@@ -32,7 +40,7 @@ Esto no prueba que las claves sigan activas ni que pertenezcan a una cuenta actu
 ## Código fuente correspondiente
 
 - **Recuperado:** 1.115 fuentes Perl en la rama de auditoría, proyecto C# WebView2, GPL y créditos.
-- **Instalador nuevo:** código Go original del instalador candidato disponible en un ZIP de fuentes separado; se está incorporando a esta rama.
+- **Instalador nuevo:** código Go original incorporado a esta rama y recompilado con resultado binario idéntico al stub del Setup candidato.
 - **No recuperado:** fuentes de los dos lanzadores Go originales de la RC1 y receta verificada de compilación del `gcstar.exe` PAR. La existencia de lanzadores nuevos en otra rama no demuestra que correspondan a los binarios ya distribuidos.
 - **Terceros:** no está completa la atribución/redistribución del runtime GTK/Perl, librerías .NET/WebView2, imágenes y recursos. No asumir licencias concretas de cada DLL sin inventario por paquete.
 
