@@ -81,6 +81,10 @@ Se examinaron los primeros 2.500 bytes de **1.081 archivos `.pm` y `.pl`** dentr
 
 Se preparó el archivo privado `JAVkt9_RC1_FUENTES_DISPONIBLES_Y_LICENCIAS_PRIVADAS.zip` (6.692.481 bytes, SHA-256 `fe39814bd0431ea011e77e81813011d6438a4761bf61ffbbf38760e58126ac68`). Contiene el ZIP de fuentes Perl/C# recuperadas, el fuente Go del instalador saneado, la receta local usada, los textos GPL y OFL/AUTHORS presentes en el payload y el inventario JSON. **No es el código fuente completo correspondiente a todos los binarios RC1** y no debe anunciarse como tal.
 
+## Revisión acotada de datos personales empaquetados
+
+Se revisaron los **nombres de los 6.216 archivos** buscando bases de datos de colecciones `.gcs`, SQLite/`.db`, almacenes de cookies e historiales de navegador, perfiles y claves privadas `.key`/`.p12`/`.pfx`. **No se encontraron archivos con esos patrones de datos de usuario.** Los únicos resultados relacionados fueron iconos de «preferences», módulos de código Perl `HTTP/Cookies` y el certificado público `Mozilla/CA/cacert.pem`. Esto es un control por nombre, **no** un escaneo completo de secretos dentro de todos los binarios.
+
 ## Pendientes precisos, sin repetir pruebas anteriores
 
 1. **Dos lanzadores Go antiguos:** obtener proyectos fuente originales o resolver sus obligaciones de redistribución según su naturaleza y licencia. Los lanzadores nuevos de otra rama no son prueba de correspondencia con los binarios RC1.
