@@ -1,0 +1,135 @@
+name: Preparar Setup RC1 saneado (solo privado)
+
+on:
+  push:
+    branches:
+      - rc-0.8.1-setup-saneado-privado
+    paths:
+      - tools/preparar_setup_rc1_saneado.py
+      - tools/test_preparar_setup_rc1_saneado.py
+      - .github/workflows/preparar-setup-rc1-saneado.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  preparar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout rama privada aislada
+        uses: actions/checkout@v4
+      - name: Preparar Go 1.23.2
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Probar saneamiento y ajustes del instalador
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tools -p 'test_preparar_setup_rc1_saneado.py' -v
+      - name: Descargar ZIP RC1 desde release privada
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          curl --fail --location --silent --show-error --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/octet-stream" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/assets/623451801" \
+            --output build/RC1_original.zip
+          echo "08fb8ef765e01909225245768d36be7797f4770a6a5d8eb7198d3f6195aadac4  build/RC1_original.zip" | sha256sum -c -
+      - name: Crear ZIP saneado y fuente exacta del nuevo Setup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/preparar_setup_rc1_saneado.py \
+            --original build/RC1_original.zip \
+            --repo . \
+            --output-zip build/RC1_saneada.zip \
+            --output-go build/main_saneado.go \
+            --output-report build/resultado_saneamiento.json
+      - name: Compilar instalador Windows x64 sin tocar la RC1 probada
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build \
+            -trimpath -ldflags="-H windowsgui" \
+            -o build/Setup_saneado_stub.exe build/main_saneado.go
+          cat build/Setup_saneado_stub.exe build/RC1_saneada.zip > build/JAVkt9_0.8.1_RC1_Setup_SANEADO_PRIVADO_Windows_x64.exe
+          sha256sum build/JAVkt9_0.8.1_RC1_Setup_SANEADO_PRIVADO_Windows_x64.exe
+      - name: Verificar ZIP adjunto al EXE y ausencia de cuatro literales
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          import json, re, hashlib
+          exe=Path('build/JAVkt9_0.8.1_RC1_Setup_SANEADO_PRIVADO_Windows_x64.exe')
+          data=exe.read_bytes()
+          with ZipFile(exe) as z:
+              if z.testzip() is not None: raise RuntimeError("CRC del EXE adjunto incorrecto")
+              names=z.namelist()
+              assert len(names)>=6216, f"Faltan entradas: {len(names)}"
+              for mod in ('GCPlugins/GCTVepisodes/GCThemoviedb.pm','GCPlugins/GCTVseries/GCThemoviedb.pm','GCPlugins/GCfilms/GCThemoviedb.pm','GCPlugins/GCstar/GCThemoviedbCommon.pm'):
+                  path='JAVkt9_0.8.1_RC1_PORTABLE/payload/lib/gcstar/'+mod
+                  value=z.read(path)
+                  if re.search(rb'my\s+\$apiKey\s*=\s*(["\x27])([^"\x27]+)\1',value):
+                      raise RuntimeError("Una clave antigua sigue en el instalador")
+              assert 'JAVkt9_0.8.1_RC1_PORTABLE/FUENTES_RECUPERADAS_RC1.zip' in names
+          result=json.loads(Path('build/resultado_saneamiento.json').read_text('utf-8'))
+          assert hashlib.sha256(data[-result['zip_saneado_bytes']:]).hexdigest()==result['zip_saneado_sha256']
+          print("Setup privado íntegro, 4 literales retirados y fuentes incluidas")
+          PY
+      - name: Guardar instalador saneado y fuente (artefacto PRIVADO, no release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: JAVkt9_RC1_Setup_SANEADO_PRIVADO
+          path: |
+            build/JAVkt9_0.8.1_RC1_Setup_SANEADO_PRIVADO_Windows_x64.exe
+            build/main_saneado.go
+            build/resultado_saneamiento.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Registrar resultado real en rama privada
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "rc-0.8.1-setup-saneado-privado"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          exe=Path('build/JAVkt9_0.8.1_RC1_Setup_SANEADO_PRIVADO_Windows_x64.exe')
+          report=json.loads(Path('build/resultado_saneamiento.json').read_text('utf-8'))
+          text=f"""# Resultado del armado del instalador RC1 saneado
+
+          **ARMADO Y VALIDACION TECNICA CORRECTOS EN GITHUB ACTIONS.**
+
+          - Archivo: JAVkt9_0.8.1_RC1_Setup_SANEADO_PRIVADO_Windows_x64.exe
+          - Bytes: {exe.stat().st_size}
+          - SHA-256: {hashlib.sha256(exe.read_bytes()).hexdigest()}
+          - Archivos del payload: {report['archivos_payload']}
+          - Claves antiguas retiradas: {report['modulos_saneados']}
+          - Inspección del PAR: {report['inspeccion_par']}
+          - Fuentes recuperadas incluidas.
+          - ZIP autoextraíble verificado íntegro.
+          - Instalador disponible como artefacto privado del workflow, no release pública.
+
+          **No equivale a prueba funcional Windows del paquete saneado.**
+          **No publicar:** fuentes originales de lanzadores/PAR y licencias de terceros siguen pendientes.
+          """
+          Path('docs/RESULTADO_SETUP_SANEADO_PRIVADO.md').write_text(text,'utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/RESULTADO_SETUP_SANEADO_PRIVADO.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "ci: confirmar Setup saneado privado con SHA-256 y fuentes"
+          git pull --rebase origin rc-0.8.1-setup-saneado-privado
+          git push origin HEAD:rc-0.8.1-setup-saneado-privado
