@@ -44,7 +44,7 @@ marker = "Paquete original RC1 conservado sin cambios."
             updated = out.read_text("utf-8")
             self.assertIn('zipSize int64 = 234', updated)
             self.assertIn('"'+ "b" * 64 + '"', updated)
-            self.assertIn('JavKT9-081-RC1-Saneada', updated)
+            self.assertIn('JAVkt9-081-RC1-Saneada', updated)
             self.assertIn('cuatro claves antiguas retiradas', updated)
             self.assertIn('RC1-Instalada', path.read_text("utf-8"))
 
