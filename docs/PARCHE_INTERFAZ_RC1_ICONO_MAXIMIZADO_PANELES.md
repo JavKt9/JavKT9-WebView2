@@ -2,7 +2,7 @@
 
 **Estado:** parche ZIP generado y verificado por hash/CRC. **No ejecutado todavía en Windows**. No publicar como release.
 
-**Archivo:** `JAVkt9_RC1_Parche_Interfaz_Icono_Maximizado_Listas_Paneles.zip` — 293.207 bytes, SHA-256 `256d70db85bb565c56d7e0f71ca8aa3ecb4e0b5c15d031ad924b5f6950a9560a`.
+**Archivo:** `JAVkt9_RC1_Parche_Interfaz_Icono_Maximizado_Listas_Paneles.zip` — 294.425 bytes, SHA-256 `eba997c9be6cc321cb6b1d5d1f6283c6b7315bb736f767cfd2bf7e80c2e37835`.
 
 ## Cuatro problemas reportados con capturas
 
@@ -13,7 +13,7 @@
 
 ## Alcance y reversibilidad
 
-El ZIP incluye los archivos Perl `GCMainWindow.pm` y `GCPanel.pm`, el modelo `GCfilms.gcm` basado en la **ficha compacta aprobada**, ícono original y PNG derivado, script `APLICAR_INTERFAZ.cmd`, PowerShell, manifiesto SHA-256 y LEEME.
+El ZIP incluye los archivos Perl `GCMainWindow.pm` y `GCPanel.pm`, el modelo `GCfilms.gcm` basado en la **ficha compacta aprobada**, ícono original y PNG derivado, script `APLICAR_INTERFAZ.cmd`, PowerShell, manifiesto SHA-256, LEEME y script de restauración `RESTAURAR_INTERFAZ.cmd`.
 
 Se validaron los hashes de todos los archivos, el XML y el CRC del ZIP. El instalador PowerShell **comprueba los hashes anteriores y nuevos antes de modificar** y realiza respaldos individuales `.antes_interfaz_final`. **Solo** escribe en `%LOCALAPPDATA%\Programs\JAVkt9-081-RC1-Fuentes-Prueba`. No cambia `JavKT9.exe`, `gcstar.exe`, Bridge, WebView2, biblioteca de películas, RC1 original ni `main`.
 
