@@ -58,7 +58,7 @@ jobs:
             throw "La reconstruccion experimental sigue incompleta; revisar dependencia o codigo"
           }
 
-      - name: Probar arranque y mostrar hash (sin subir artefactos)
+      - name: Probar arranque y preparar registro de procedencia
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -72,4 +72,43 @@ jobs:
             throw "El EXE experimental no supera arranque --version (codigo $LASTEXITCODE)"
           }
           Write-Host "Smoke test OK; aun NO valida interfaz grafica, dependencias ni distribucion legal."
+
+      - name: Preparar manifiesto de compilacion y dependencias
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = 'out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe'
+          if (!(Test-Path $exe)) { throw "No existe EXE experimental" }
+          $out = 'out-gcstar-cygwin-experimental'
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $embeddedSource = (Get-FileHash 'src/perl/par_embebido/script/gcstar.pl' -Algorithm SHA256).Hash.ToLowerInvariant()
+          $lines = @(
+            "EXPERIMENTAL: NO PUBLICAR NI REEMPLAZAR RC1 APROBADA",
+            "Rama: experimento-gcstar-par-rc1",
+            "Commit: ${{ github.sha }}",
+            "Script principal: src/perl/par_embebido/script/gcstar.pl (GCstar 1.7.3)",
+            "SHA-256 fuente script: $embeddedSource",
+            "SHA-256 EXE: $hash",
+            "Runtime: Cygwin Perl/GTK3/PAR; requiere DLL y entorno Cygwin.",
+            "Prueba automatica: solo gcstar --version; NO se probo la GUI.",
+            "Fuentes y avisos de terceros todavia no auditados."
+          )
+          Set-Content -Path (Join-Path $out "MANIFIESTO_EXPERIMENTAL.txt") -Value $lines -Encoding utf8
+          & 'C:\cygwin64\bin\bash.exe' -lc 'cygcheck -c' | Out-File (Join-Path $out "CYGWIN_PAQUETES_INSTALADOS.txt") -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo inventariar Cygwin" }
+          & 'C:\cygwin64\bin\bash.exe' -lc 'cygcheck "$(cygpath -u "$GITHUB_WORKSPACE")/out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe"' |
+            Out-File (Join-Path $out "CYGWIN_DLL_DIAGNOSTICO.txt") -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo diagnosticar dependencias DLL" }
+
+      - name: Guardar ejecutable experimental privado y manifiesto
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcstar-cygwin-PAR-SOLO-EXPERIMENTAL
+          path: |
+            out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe
+            out-gcstar-cygwin-experimental/MANIFIESTO_EXPERIMENTAL.txt
+            out-gcstar-cygwin-experimental/CYGWIN_PAQUETES_INSTALADOS.txt
+            out-gcstar-cygwin-experimental/CYGWIN_DLL_DIAGNOSTICO.txt
+          if-no-files-found: error
+          retention-days: 7
 
