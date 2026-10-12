@@ -10,7 +10,7 @@ if (!(Test-Path $setup) -or !(Test-Path $bash)) {
     throw 'Faltan Cygwin o su instalador en el runner temporal'
 }
 $tried = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-$command = 'cd "$(cygpath -u "$GITHUB_WORKSPACE")" && sed -i "s/\r$//" tools/build_gcstar_cygwin_experimental.sh && bash tools/build_gcstar_cygwin_experimental.sh'
+$command = 'cd "$(cygpath -u "$GITHUB_WORKSPACE")" && export PERL5LIB="$HOME/perl5/lib/perl5" && sed -i "s/\r$//" tools/build_gcstar_cygwin_experimental.sh && bash tools/build_gcstar_cygwin_experimental.sh'
 
 for ($round = 1; $round -le 15; $round++) {
     Write-Host "Intento experimental de GCstar: $round"
