@@ -15,3 +15,16 @@ pwsh -File tools/build_gcstar_par.ps1 -OutputDir "$PWD\\build-gcstar-experimenta
 Este comando falla explícitamente si falta Perl, PAR::Packer o alguno de los scripts; no toma un binario viejo ni publica una release.
 
 La RC1 aprobada se mantiene sin cambios hasta que la candidata experimental supere sus pruebas.
+
+## Resultado real de GitHub Actions — 12-10-2026
+
+- Rama experimental independiente: `experimento-gcstar-par-rc1`.
+- Primera ejecución `38193584942`: Strawberry Perl 5.32.1 presente, módulos Gtk3/Glib/Glib::Object::Introspection/Cairo/Pango ausentes. El diagnóstico debió corregirse para que un fallo esperado de carga no interrumpiera la secuencia.
+- Segunda ejecución `38193688506`: PAR::Packer se instaló correctamente; la compilación paró porque no encontraba `GCOptions.pm`, pese a estar en `src/perl/lib/gcstar`. Se añadió esta ruta a la verificación Perl.
+- Tercera ejecución `38193771782`: PAR::Packer se instaló; el script Perl cargó `GCOptions.pm` pero falló exactamente por `Can't locate Gtk3.pm`, importado desde `GCOptions.pm`. **No se generó gcstar-experimental.exe**.
+
+### Siguiente bloqueo
+
+Conseguir una **cadena de dependencias Perl/GTK3/GObject Introspection y librerías nativas compatible en Windows**, con versiones, procedencia y licencias verificables. No mezclar arbitrariamente los binarios del runtime aprobado con Strawberry Perl: podrían ser ABI incompatibles. Se pueden evaluar distribuciones de desarrollo como MSYS2 o Cygwin, pero un `gcstar.exe` construido allí será otra variante que requerirá pruebas funcionales y revisión de licencias.
+
+Estas ejecuciones no modificaron el instalador RC1 ni reemplazaron el ejecutable aprobado. **No declarar éxito de compilación ni autorizar publicación.**
