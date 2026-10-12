@@ -42,7 +42,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          & 'C:\cygwin64\bin\bash.exe' -lc 'cd "$(cygpath -u "$GITHUB_WORKSPACE")" && bash tools/build_gcstar_cygwin_experimental.sh'
+          # Git para Windows puede convertir .sh a CRLF al hacer checkout.
+          & 'C:\cygwin64\bin\bash.exe' -lc 'cd "$(cygpath -u "$GITHUB_WORKSPACE")" && sed -i "s/\r$//" tools/build_gcstar_cygwin_experimental.sh && bash tools/build_gcstar_cygwin_experimental.sh'
           if ($LASTEXITCODE -ne 0) {
             throw "No se logro compilar con el runtime Cygwin GTK3; revisar dependencia faltante"
           }
