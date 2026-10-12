@@ -1,0 +1,76 @@
+name: Reconstruir GCstar PAR experimental (privado)
+
+on:
+  push:
+    branches: [experimento-gcstar-par-rc1]
+    paths:
+      - '.github/workflows/reconstruir-gcstar-par-experimental.yml'
+      - 'tools/build_gcstar_par.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconstruccion-par:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - name: Obtener fuentes recuperadas
+        uses: actions/checkout@v4
+
+      - name: Instalar Perl para compilacion (no modifica RC1)
+        shell: pwsh
+        run: |
+          choco install strawberryperl -y --no-progress --limit-output
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar Strawberry Perl" }
+          $dirs = @("C:\Strawberry\perl\bin", "C:\Strawberry\perl\site\bin", "C:\Strawberry\c\bin")
+          foreach ($dir in $dirs) {
+            if (Test-Path $dir) {
+              Add-Content -Path $env:GITHUB_PATH -Value $dir
+              $env:PATH = "$dir;$env:PATH"
+            }
+          }
+          perl -v
+          if ($LASTEXITCODE -ne 0) { throw "Perl no es ejecutable" }
+          $perlCmd = Get-Command perl -ErrorAction Stop
+          Write-Host "Perl: $($perlCmd.Source)"
+
+      - name: Registrar versiones y verificar dependencias GTK
+        shell: pwsh
+        run: |
+          foreach ($module in @("Gtk3", "Glib", "Glib::Object::Introspection", "Cairo", "Pango")) {
+            & perl "-M$module" -e "exit 0" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "DISPONIBLE: $module"
+            } else {
+              Write-Warning "AUSENTE: $module (para la interfaz GTK3 se requiere entorno nativo compatible)"
+            }
+          }
+          Write-Host "Diagnostico solamente: los avisos no prueban equivalencia con la RC1."
+
+      - name: Instalar PAR Packer en entorno temporal
+        shell: pwsh
+        run: |
+          $cpanm = Get-Command cpanm -ErrorAction SilentlyContinue
+          if (!$cpanm) { throw "Strawberry Perl no tiene cpanm accesible: revisar instalacion" }
+          & cpanm --notest PAR::Packer
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar PAR::Packer con el Perl seleccionado" }
+          & perl -MPAR::Packer -e "print qq(PAR::Packer disponible\n)"
+          if ($LASTEXITCODE -ne 0) { throw "PAR::Packer no puede cargarse" }
+          & pp -V
+          if ($LASTEXITCODE -ne 0) { throw "pp no esta operativo" }
+
+      - name: Compilar GCstar 1.7.3 recuperado del PAR
+        shell: pwsh
+        run: |
+          & pwsh -NoProfile -File tools/build_gcstar_par.ps1 -OutputDir "$env:RUNNER_TEMP/gcstar-par-experimental"
+          if ($LASTEXITCODE -ne 0) { throw "Fallo el intento de reconstruccion; revisar el log de dependencias" }
+
+      - name: Guardar artefacto PRIVADO de prueba (NO publicar)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcstar-par-experimental-no-publicar
+          path: ${{ runner.temp }}/gcstar-par-experimental/gcstar-experimental.exe
+          retention-days: 3
+          if-no-files-found: error
