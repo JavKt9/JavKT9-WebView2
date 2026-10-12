@@ -1,0 +1,56 @@
+name: Reconstruir GCstar con Cygwin GTK3 (experimental)
+
+on:
+  push:
+    branches: [experimento-gcstar-par-rc1]
+    paths:
+      - 'tools/build_gcstar_cygwin_experimental.sh'
+      - '.github/workflows/reconstruir-gcstar-cygwin-experimental.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cygwin-par:
+    runs-on: windows-2022
+    timeout-minutes: 75
+    steps:
+      - name: Obtener fuentes privadas sin modificar RC1
+        uses: actions/checkout@v4
+
+      - name: Instalar Cygwin GTK3 PAR con paquetes oficiales
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Join-Path $env:RUNNER_TEMP 'setup-x86_64.exe'
+          $root = 'C:\cygwin64'
+          $cache = Join-Path $env:RUNNER_TEMP 'cygwin-cache'
+          New-Item -ItemType Directory -Force $cache | Out-Null
+          Invoke-WebRequest -Uri 'https://cygwin.com/setup-x86_64.exe' -OutFile $setup -ErrorAction Stop
+          $packages = 'perl,perl-Gtk3,perl-Glib,perl-Glib-Object-Introspection,perl-Cairo,perl-Pango,perl-PAR-Packer,perl-XML-Simple,girepository-Gtk3.0'
+          & $setup -q -n -N -R $root -l $cache -s 'https://mirrors.kernel.org/sourceware/cygwin/' -P $packages
+          if ($LASTEXITCODE -ne 0) { throw "Fallo instalacion de Cygwin: codigo $LASTEXITCODE" }
+          if (!(Test-Path "$root\bin\bash.exe") -or !(Test-Path "$root\bin\perl.exe")) {
+            throw 'Instalacion Cygwin incompleta'
+          }
+          Write-Host "OK: Cygwin instalado en el runner temporal (no en el equipo del usuario)"
+
+      - name: Comprobar GTK3 y compilar GCstar experimental con Cygwin PAR
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & 'C:\cygwin64\bin\bash.exe' -lc 'cd "$(cygpath -u "$GITHUB_WORKSPACE")" && bash tools/build_gcstar_cygwin_experimental.sh'
+          if ($LASTEXITCODE -ne 0) {
+            throw "No se logro compilar con el runtime Cygwin GTK3; revisar dependencia faltante"
+          }
+
+      - name: Guardar artefacto temporal PRIVADO (no publicable sin validar)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcstar-cygwin-experimental-no-publicar
+          path: |
+            out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe
+            out-gcstar-cygwin-experimental/SHA256.txt
+          retention-days: 3
+          if-no-files-found: error
