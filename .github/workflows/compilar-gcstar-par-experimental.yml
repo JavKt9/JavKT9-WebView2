@@ -1,6 +1,9 @@
 name: Reconstruir GCstar PAR experimental (aislado)
 on:
   workflow_dispatch:
+  push:
+    branches: [rc-0.8.1-inno-setup-program-files]
+    paths: ['.github/workflows/compilar-gcstar-par-experimental.yml']
 permissions:
   contents: read
 jobs:
