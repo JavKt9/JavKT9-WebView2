@@ -292,6 +292,84 @@ jobs:
           $lines.Add('Nota: un inventario de archivos no identifica por si solo la DLL que fallo con nombre ?. Revisar salida y dependencias dinamicas.')
           $lines | Set-Content $report -Encoding utf8
 
+      - name: Rastrear carga dinamica y cache PAR sin modificar RC1
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = 'out-gcstar-cygwin-experimental'
+          $report = Join-Path $out 'RASTREO_CARGA_PAR.txt'
+          $exe = (Resolve-Path (Join-Path $out 'gcstar-cygwin-experimental.exe')).Path
+          $sandbox = Join-Path $env:RUNNER_TEMP 'gcstar-trace-isolated'
+          New-Item -ItemType Directory -Force -Path $sandbox | Out-Null
+          Copy-Item $exe (Join-Path $sandbox 'gcstar-cygwin-experimental.exe')
+          $dlls = @('cygwin1.dll', 'cygperl5_44.dll', 'cygcrypt-2.dll', 'cyggcc_s-seh-1.dll')
+          foreach ($dll in $dlls) {
+            Copy-Item (Join-Path 'C:\cygwin64\bin' $dll) (Join-Path $sandbox $dll)
+          }
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR - DIAGNOSTICO CLI; GUI y licencias pendientes.')
+          $lines.Add('Se comprueba la carga de DLL con PATH reducido y la cache PAR.')
+          $oldPath = $env:PATH
+          try {
+            $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+            $stdout = Join-Path $sandbox 'stdout.txt'
+            $stderr = Join-Path $sandbox 'stderr.txt'
+            $target = Join-Path $sandbox 'gcstar-cygwin-experimental.exe'
+            try {
+              $proc = Start-Process -FilePath $target -ArgumentList '--version' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+              if ($proc.WaitForExit(20000)) {
+                $lines.Add("Codigo de salida: $($proc.ExitCode)")
+              } else {
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                $lines.Add('TIMEOUT 20 segundos')
+              }
+              $lines.Add('stdout: ' + [string](Get-Content $stdout -Raw -ErrorAction SilentlyContinue))
+              $lines.Add('stderr: ' + [string](Get-Content $stderr -Raw -ErrorAction SilentlyContinue))
+            } catch {
+              $lines.Add("Fallo al iniciar: $($_.Exception.Message)")
+            }
+          } finally {
+            $env:PATH = $oldPath
+          }
+          $lines.Add('DLL presentes en directorio aislado:')
+          foreach ($dll in (Get-ChildItem $sandbox -Filter '*.dll' -File)) { $lines.Add($dll.Name) }
+          $lines.Add('DLL extraidas a cache PAR (nombres):')
+          foreach ($folder in (Get-ChildItem $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue)) {
+            foreach ($dll in (Get-ChildItem $folder.FullName -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '\\.dll
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "gcstar-cygwin-experimental-${{ github.run_id }}-${{ github.run_attempt }}"
+          $files = @(
+            'out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe',
+            'out-gcstar-cygwin-experimental/MANIFIESTO_EXPERIMENTAL.txt',
+            'out-gcstar-cygwin-experimental/CYGWIN_PAQUETES_INSTALADOS.txt',
+            'out-gcstar-cygwin-experimental/CYGWIN_DLL_DIAGNOSTICO.txt',
+            'out-gcstar-cygwin-experimental/AUDITORIA_PENDIENTES.txt',
+            'out-gcstar-cygwin-experimental/DEPENDENCIAS_DETECTADAS.txt',
+            'out-gcstar-cygwin-experimental/PRUEBA_PATH_LIMPIO.txt',
+            'out-gcstar-cygwin-experimental/DIAGNOSTICO_DLL_AISLADO.txt',
+            'out-gcstar-cygwin-experimental/IMPORTACIONES_PERL.txt',
+            'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_PERL_AISLADO.txt',
+            'out-gcstar-cygwin-experimental/ANALISIS_DLL_TRANSITIVAS_PAR.txt',
+            'out-gcstar-cygwin-experimental/RASTREO_CARGA_PAR.txt'
+          )
+          foreach ($file in $files) {
+            if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
+          }
+          $notes = 'EXPERIMENTAL - NO PUBLICAR. Solo se comprobo --version. Faltan GUI, DLL, fuentes y licencias. No reemplaza la RC1.'
+          gh release create $tag @files --draft --prerelease --target "${{ github.sha }}" --title "GCstar Cygwin experimental (NO PUBLICAR) $tag" --notes $notes
+          if ($LASTEXITCODE -ne 0) { throw 'No se pudo guardar la release experimental en borrador' }
+          Write-Host "Borrador experimental creado: $tag. NO publicado."
+ })) {
+              $lines.Add($dll.Name)
+            }
+          }
+          $lines.Add('Este rastreo NO prueba que una DLL concreta haya sido buscada; falta traza de carga a nivel de proceso.')
+          $lines | Set-Content $report -Encoding utf8
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
