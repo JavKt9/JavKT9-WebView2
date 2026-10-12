@@ -100,6 +100,29 @@ jobs:
             Out-File (Join-Path $out "CYGWIN_DLL_DIAGNOSTICO.txt") -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw "No se pudo diagnosticar dependencias DLL" }
 
+      - name: Auditar portabilidad y registrar licencias pendientes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = 'out-gcstar-cygwin-experimental'
+          $exe = Join-Path $out 'gcstar-cygwin-experimental.exe'
+          $report = @(
+            'ESTADO: EXPERIMENTAL - NO APTO PARA DISTRIBUCION',
+            'El test --version se ejecuto con Cygwin instalado en el runner.',
+            'No se ha probado una maquina Windows limpia ni la interfaz GTK3.',
+            'cygcheck enumera DLL detectadas, pero no prueba portabilidad.',
+            'El inventario cygcheck -c enumera paquetes instalados, NO licencias verificadas.',
+            'Revisar expresamente Cygwin runtime (GPL y excepcion de enlace), GTK3, Perl, PAR y dependencias transitivas.',
+            'NO copiar DLL del runner Windows/Java al instalador.',
+            'PENDIENTE: atribuciones, fuentes correspondientes, licencias y prueba GUI en VM limpia.'
+          )
+          Set-Content (Join-Path $out 'AUDITORIA_PENDIENTES.txt') $report -Encoding utf8
+          $dlls = & 'C:\cygwin64\bin\bash.exe' -lc 'cygcheck "$(cygpath -u "$GITHUB_WORKSPACE")/out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe"'
+          if ($LASTEXITCODE -ne 0) { throw 'No se pudo ejecutar cygcheck' }
+          $dlls | Where-Object { $_ -match 'cygwin64|\.dll' } |
+            Sort-Object -Unique |
+            Set-Content (Join-Path $out 'DEPENDENCIAS_DETECTADAS.txt') -Encoding utf8
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
@@ -111,7 +134,9 @@ jobs:
             'out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe',
             'out-gcstar-cygwin-experimental/MANIFIESTO_EXPERIMENTAL.txt',
             'out-gcstar-cygwin-experimental/CYGWIN_PAQUETES_INSTALADOS.txt',
-            'out-gcstar-cygwin-experimental/CYGWIN_DLL_DIAGNOSTICO.txt'
+            'out-gcstar-cygwin-experimental/CYGWIN_DLL_DIAGNOSTICO.txt',
+            'out-gcstar-cygwin-experimental/AUDITORIA_PENDIENTES.txt',
+            'out-gcstar-cygwin-experimental/DEPENDENCIAS_DETECTADAS.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
