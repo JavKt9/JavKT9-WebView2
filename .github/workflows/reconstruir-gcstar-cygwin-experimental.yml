@@ -45,7 +45,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           & 'C:\cygwin64\bin\bash.exe' -lc 'PERL_MM_USE_DEFAULT=1 perl -MCPAN -e "CPAN::Shell->notest(q(install),q(Gtk3::SimpleList))"'
           if ($LASTEXITCODE -ne 0) { throw "Fallo CPAN Gtk3::SimpleList" }
-          & 'C:\cygwin64\bin\bash.exe' -lc 'perl -MGtk3::SimpleList -e "print qq(Gtk3::SimpleList disponible\n)"'
+          & 'C:\cygwin64\bin\bash.exe' -lc 'PERL5LIB="$HOME/perl5/lib/perl5" perl -MGtk3::SimpleList -e "print qq(Gtk3::SimpleList disponible\n)"'
           if ($LASTEXITCODE -ne 0) { throw "Gtk3::SimpleList sigue ausente" }
 
       - name: Comprobar GTK3 y compilar GCstar experimental con Cygwin PAR
