@@ -155,6 +155,51 @@ jobs:
             $env:PATH = $oldPath
           }
 
+      - name: Identificar DLL directas y probar Cygwin aislado
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = 'out-gcstar-cygwin-experimental'
+          $exe = (Resolve-Path (Join-Path $out 'gcstar-cygwin-experimental.exe')).Path
+          $report = Join-Path $out 'DIAGNOSTICO_DLL_AISLADO.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR - DIAGNOSTICO, NO VALIDACION GUI')
+          $lines.Add('0xC0000135 = STATUS_DLL_NOT_FOUND; PATH limpio anterior fallo.')
+          $lines.Add('DLL importadas directamente por el EXE (objdump):')
+          $bash = 'C:\cygwin64\bin\bash.exe'
+          $obj = & $bash -lc 'objdump -p "$(cygpath -u "$GITHUB_WORKSPACE")/out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe" | grep "DLL Name:"'
+          foreach ($entry in $obj) { $lines.Add([string]$entry) }
+          $lines.Add('Prueba controlada: directorio aislado con SOLO cygwin1.dll al lado del EXE.')
+          $tmp = Join-Path $env:RUNNER_TEMP 'gcstar-isolated'
+          New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+          Copy-Item $exe (Join-Path $tmp 'gcstar-cygwin-experimental.exe')
+          Copy-Item 'C:\cygwin64\bin\cygwin1.dll' (Join-Path $tmp 'cygwin1.dll')
+          $oldPath = $env:PATH
+          try {
+            $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+            $stdout = Join-Path $tmp 'stdout.txt'
+            $stderr = Join-Path $tmp 'stderr.txt'
+            try {
+              $p = Start-Process -FilePath (Join-Path $tmp 'gcstar-cygwin-experimental.exe') -ArgumentList '--version' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+              if (-not $p.WaitForExit(20000)) {
+                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                $lines.Add('Resultado: TIMEOUT 20 segundos')
+              } else {
+                $lines.Add("Resultado: codigo $($p.ExitCode)")
+              }
+              $lines.Add('stdout:')
+              $lines.Add([string](Get-Content $stdout -Raw -ErrorAction SilentlyContinue))
+              $lines.Add('stderr:')
+              $lines.Add([string](Get-Content $stderr -Raw -ErrorAction SilentlyContinue))
+            } catch {
+              $lines.Add("Error de inicio: $($_.Exception.Message)")
+            }
+          } finally {
+            $env:PATH = $oldPath
+          }
+          $lines.Add('No se copiaron otras DLL ni se ha probado GTK3/GUI en Windows limpio.')
+          $lines | Set-Content $report -Encoding utf8
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
@@ -169,7 +214,8 @@ jobs:
             'out-gcstar-cygwin-experimental/CYGWIN_DLL_DIAGNOSTICO.txt',
             'out-gcstar-cygwin-experimental/AUDITORIA_PENDIENTES.txt',
             'out-gcstar-cygwin-experimental/DEPENDENCIAS_DETECTADAS.txt',
-            'out-gcstar-cygwin-experimental/PRUEBA_PATH_LIMPIO.txt'
+            'out-gcstar-cygwin-experimental/PRUEBA_PATH_LIMPIO.txt',
+            'out-gcstar-cygwin-experimental/DIAGNOSTICO_DLL_AISLADO.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
