@@ -257,6 +257,41 @@ jobs:
           }
           $lines | Set-Content (Join-Path $out 'PRUEBA_RUNTIME_PERL_AISLADO.txt') -Encoding utf8
 
+      - name: Analizar DLL transitivas y bibliotecas PAR extraidas
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = 'out-gcstar-cygwin-experimental'
+          $report = Join-Path $out 'ANALISIS_DLL_TRANSITIVAS_PAR.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR - solo inventario, no valida GUI ni licencias.')
+          $bash = 'C:\cygwin64\bin\bash.exe'
+          $names = @('cygwin1.dll', 'cygperl5_44.dll', 'cygcrypt-2.dll', 'cyggcc_s-seh-1.dll')
+          foreach ($name in $names) {
+            $lines.Add("=== Importaciones directas de $name ===")
+            $unixPath = "/usr/bin/$name"
+            $output = & $bash -lc "objdump -p '$unixPath' | grep 'DLL Name:'"
+            if ($LASTEXITCODE -ne 0) {
+              $lines.Add('Sin importaciones detectadas o fallo de objdump.')
+            } else {
+              foreach ($entry in $output) { $lines.Add([string]$entry) }
+            }
+          }
+          $lines.Add('=== Bibliotecas extraidas por PAR en cache temporal ===')
+          $cacheRoots = @(Get-ChildItem -Path $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue)
+          $found = 0
+          foreach ($root in $cacheRoots) {
+            Get-ChildItem -Path $root.FullName -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.Extension -in @('.dll','.so') -or $_.Name -match '\\.dll\\.' } |
+              ForEach-Object {
+                $lines.Add($_.FullName.Replace($env:RUNNER_TEMP, '<RUNNER_TEMP>'))
+                $found++
+              }
+          }
+          $lines.Add("Archivos encontrados: $found")
+          $lines.Add('Nota: un inventario de archivos no identifica por si solo la DLL que fallo con nombre ?. Revisar salida y dependencias dinamicas.')
+          $lines | Set-Content $report -Encoding utf8
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
@@ -274,7 +309,8 @@ jobs:
             'out-gcstar-cygwin-experimental/PRUEBA_PATH_LIMPIO.txt',
             'out-gcstar-cygwin-experimental/DIAGNOSTICO_DLL_AISLADO.txt',
             'out-gcstar-cygwin-experimental/IMPORTACIONES_PERL.txt',
-            'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_PERL_AISLADO.txt'
+            'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_PERL_AISLADO.txt',
+            'out-gcstar-cygwin-experimental/ANALISIS_DLL_TRANSITIVAS_PAR.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
