@@ -29,8 +29,10 @@ jobs:
           New-Item -ItemType Directory -Force $cache | Out-Null
           Invoke-WebRequest -Uri 'https://cygwin.com/setup-x86_64.exe' -OutFile $setup -ErrorAction Stop
           $packages = 'perl,perl-Gtk3,perl-Glib,perl-Glib-Object-Introspection,perl-Cairo,perl-Pango,perl-PAR-Packer,perl-XML-Simple,girepository-Gtk3.0'
-          & $setup -q -n -N -R $root -l $cache -s 'https://mirrors.kernel.org/sourceware/cygwin/' -P $packages
-          if ($LASTEXITCODE -ne 0) { throw "Fallo instalacion de Cygwin: codigo $LASTEXITCODE" }
+          # setup inicia un proceso Windows separado; esperar su finalizacion real.
+          $args = @('-q', '-n', '-N', '-R', $root, '-l', $cache, '-s', 'https://mirrors.kernel.org/sourceware/cygwin/', '-P', $packages)
+          $process = Start-Process -FilePath $setup -ArgumentList $args -NoNewWindow -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Fallo instalacion de Cygwin: codigo $($process.ExitCode)" }
           if (!(Test-Path "$root\bin\bash.exe") -or !(Test-Path "$root\bin\perl.exe")) {
             throw 'Instalacion Cygwin incompleta'
           }
