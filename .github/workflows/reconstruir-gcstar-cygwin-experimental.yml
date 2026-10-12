@@ -200,6 +200,23 @@ jobs:
           $lines.Add('No se copiaron otras DLL ni se ha probado GTK3/GUI en Windows limpio.')
           $lines | Set-Content $report -Encoding utf8
 
+      - name: Inventariar dependencias directas del runtime Perl
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $runtime = 'C:\cygwin64\bin\cygperl5_44.dll'
+          if (!(Test-Path $runtime)) { throw 'Runtime Perl no encontrado' }
+          $output = @(
+            'EXPERIMENTAL: inventario tecnico, NO autoriza distribucion.',
+            'El ensayo anterior identifico cygperl5_44.dll como biblioteca ausente.',
+            'Importaciones directas del runtime Perl:'
+          )
+          $imports = & 'C:\cygwin64\bin\bash.exe' -lc 'objdump -p /usr/bin/cygperl5_44.dll | grep "DLL Name:"'
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo inventario del runtime Perl' }
+          $output += $imports
+          $output += 'Pendiente: dependencias transitivas, recursos GTK3, licencias y GUI.'
+          $output | Set-Content 'out-gcstar-cygwin-experimental/IMPORTACIONES_PERL.txt' -Encoding utf8
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
@@ -215,7 +232,8 @@ jobs:
             'out-gcstar-cygwin-experimental/AUDITORIA_PENDIENTES.txt',
             'out-gcstar-cygwin-experimental/DEPENDENCIAS_DETECTADAS.txt',
             'out-gcstar-cygwin-experimental/PRUEBA_PATH_LIMPIO.txt',
-            'out-gcstar-cygwin-experimental/DIAGNOSTICO_DLL_AISLADO.txt'
+            'out-gcstar-cygwin-experimental/DIAGNOSTICO_DLL_AISLADO.txt',
+            'out-gcstar-cygwin-experimental/IMPORTACIONES_PERL.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
