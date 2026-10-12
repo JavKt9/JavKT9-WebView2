@@ -1,0 +1,60 @@
+name: Validar fuentes RC1 sin tocar instalador
+
+on:
+  push:
+    branches: [rc-0.8.1-inno-setup-program-files]
+    paths:
+      - 'src/public-launcher-rc1/**'
+      - 'src/public-bridge-launcher-rc1/**'
+      - 'src/perl/bin/gcstar'
+      - 'src/perl/par_embebido/script/gcstar.pl'
+      - '.github/workflows/validar-fuentes-rc1-publicacion.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-fuentes:
+    runs-on: windows-latest
+    steps:
+      - name: Obtener fuentes
+        uses: actions/checkout@v4
+      - name: Preparar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Verificar lanzadores de codigo disponible
+        shell: pwsh
+        run: |
+          $env:GO111MODULE = "off"
+          Push-Location src/public-launcher-rc1
+          try {
+            go test .
+            if ($LASTEXITCODE -ne 0) { throw "Fallaron pruebas de JavKT9.exe" }
+            go build -trimpath -ldflags="-s -w -H windowsgui" -o "$env:RUNNER_TEMP/JavKT9.exe" .
+            if ($LASTEXITCODE -ne 0) { throw "Fallo compilacion de JavKT9.exe" }
+          } finally { Pop-Location }
+          Push-Location src/public-bridge-launcher-rc1
+          try {
+            go test .
+            if ($LASTEXITCODE -ne 0) { throw "Fallaron pruebas del BridgeLauncher" }
+            go build -trimpath -ldflags="-s -w -H windowsgui" -o "$env:RUNNER_TEMP/GCJavBridgeLauncher.exe" .
+            if ($LASTEXITCODE -ne 0) { throw "Fallo compilacion del BridgeLauncher" }
+          } finally { Pop-Location }
+      - name: Comparar scripts GCstar sin ocultar diferencias
+        shell: pwsh
+        run: |
+          $plain = Get-Content "src/perl/bin/gcstar" -Raw
+          $embedded = Get-Content "src/perl/par_embebido/script/gcstar.pl" -Raw
+          if (!$plain -or !$embedded) { throw "Faltan fuentes Perl" }
+          $plainVersion = [regex]::Match($plain, "my \\$VERSION = '([^']+)'").Groups[1].Value
+          $embeddedVersion = [regex]::Match($embedded, "my \\$VERSION = '([^']+)'").Groups[1].Value
+          Write-Host "Script plano GCstar version: $plainVersion"
+          Write-Host "Script recuperado de PAR version: $embeddedVersion"
+          if (!$plainVersion -or !$embeddedVersion) { throw "No se identificaron versiones" }
+          if ($plainVersion -ne $embeddedVersion) {
+            Write-Warning "Bloqueante para publicar: las variantes difieren. Reconstruir y probar antes de sustituir gcstar.exe."
+          }
+          Write-Host "Esta verificacion NO prueba correspondencia de binarios ni cumplimiento de licencias."
