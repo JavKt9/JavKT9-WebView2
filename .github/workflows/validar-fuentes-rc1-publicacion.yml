@@ -49,8 +49,8 @@ jobs:
           $plain = Get-Content "src/perl/bin/gcstar" -Raw
           $embedded = Get-Content "src/perl/par_embebido/script/gcstar.pl" -Raw
           if (!$plain -or !$embedded) { throw "Faltan fuentes Perl" }
-          $plainVersion = [regex]::Match($plain, "my \\$VERSION = '([^']+)'").Groups[1].Value
-          $embeddedVersion = [regex]::Match($embedded, "my \\$VERSION = '([^']+)'").Groups[1].Value
+          $plainVersion = [regex]::Match($plain, "my \`$VERSION = '([^']+)'").Groups[1].Value
+          $embeddedVersion = [regex]::Match($embedded, "my \`$VERSION = '([^']+)'").Groups[1].Value
           Write-Host "Script plano GCstar version: $plainVersion"
           Write-Host "Script recuperado de PAR version: $embeddedVersion"
           if (!$plainVersion -or !$embeddedVersion) { throw "No se identificaron versiones" }
