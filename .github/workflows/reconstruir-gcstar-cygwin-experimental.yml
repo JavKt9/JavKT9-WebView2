@@ -335,39 +335,11 @@ jobs:
           foreach ($dll in (Get-ChildItem $sandbox -Filter '*.dll' -File)) { $lines.Add($dll.Name) }
           $lines.Add('DLL extraidas a cache PAR (nombres):')
           foreach ($folder in (Get-ChildItem $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue)) {
-            foreach ($dll in (Get-ChildItem $folder.FullName -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '\\.dll
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $tag = "gcstar-cygwin-experimental-${{ github.run_id }}-${{ github.run_attempt }}"
-          $files = @(
-            'out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe',
-            'out-gcstar-cygwin-experimental/MANIFIESTO_EXPERIMENTAL.txt',
-            'out-gcstar-cygwin-experimental/CYGWIN_PAQUETES_INSTALADOS.txt',
-            'out-gcstar-cygwin-experimental/CYGWIN_DLL_DIAGNOSTICO.txt',
-            'out-gcstar-cygwin-experimental/AUDITORIA_PENDIENTES.txt',
-            'out-gcstar-cygwin-experimental/DEPENDENCIAS_DETECTADAS.txt',
-            'out-gcstar-cygwin-experimental/PRUEBA_PATH_LIMPIO.txt',
-            'out-gcstar-cygwin-experimental/DIAGNOSTICO_DLL_AISLADO.txt',
-            'out-gcstar-cygwin-experimental/IMPORTACIONES_PERL.txt',
-            'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_PERL_AISLADO.txt',
-            'out-gcstar-cygwin-experimental/ANALISIS_DLL_TRANSITIVAS_PAR.txt',
-            'out-gcstar-cygwin-experimental/RASTREO_CARGA_PAR.txt'
-          )
-          foreach ($file in $files) {
-            if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
-          }
-          $notes = 'EXPERIMENTAL - NO PUBLICAR. Solo se comprobo --version. Faltan GUI, DLL, fuentes y licencias. No reemplaza la RC1.'
-          gh release create $tag @files --draft --prerelease --target "${{ github.sha }}" --title "GCstar Cygwin experimental (NO PUBLICAR) $tag" --notes $notes
-          if ($LASTEXITCODE -ne 0) { throw 'No se pudo guardar la release experimental en borrador' }
-          Write-Host "Borrador experimental creado: $tag. NO publicado."
- })) {
-              $lines.Add($dll.Name)
+            foreach ($item in (Get-ChildItem $folder.FullName -Recurse -File -ErrorAction SilentlyContinue)) {
+              if ($item.Extension -eq '.dll') { $lines.Add($item.Name) }
             }
           }
-          $lines.Add('Este rastreo NO prueba que una DLL concreta haya sido buscada; falta traza de carga a nivel de proceso.')
+          $lines.Add('El inventario no registra intentos de carga de DLL a nivel de proceso.')
           $lines | Set-Content $report -Encoding utf8
 
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
