@@ -5,6 +5,7 @@ on:
     branches: [experimento-gcstar-par-rc1]
     paths:
       - 'tools/build_gcstar_cygwin_experimental.sh'
+      - 'tools/rebuild_gcstar_cygwin_retry.ps1'
       - '.github/workflows/reconstruir-gcstar-cygwin-experimental.yml'
   workflow_dispatch:
 
@@ -42,10 +43,10 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          # Git para Windows puede convertir .sh a CRLF al hacer checkout.
-          & 'C:\cygwin64\bin\bash.exe' -lc 'cd "$(cygpath -u "$GITHUB_WORKSPACE")" && sed -i "s/\r$//" tools/build_gcstar_cygwin_experimental.sh && bash tools/build_gcstar_cygwin_experimental.sh'
+          # Reutilizar el mismo Cygwin instalado para módulos que GCstar vaya solicitando.
+          & pwsh -NoProfile -File tools/rebuild_gcstar_cygwin_retry.ps1
           if ($LASTEXITCODE -ne 0) {
-            throw "No se logro compilar con el runtime Cygwin GTK3; revisar dependencia faltante"
+            throw "La reconstruccion experimental sigue incompleta; revisar dependencia o codigo"
           }
 
       - name: Guardar artefacto temporal PRIVADO (no publicable sin validar)
