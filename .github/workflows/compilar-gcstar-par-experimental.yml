@@ -1,0 +1,45 @@
+name: Reconstruir GCstar PAR experimental (aislado)
+on:
+  workflow_dispatch:
+  push:
+    branches: [rc-0.8.1-inno-setup-program-files]
+    paths: ['.github/workflows/compilar-gcstar-par-experimental.yml']
+permissions:
+  contents: read
+jobs:
+  par-experimental:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Obtener fuentes
+        uses: actions/checkout@v4
+      - name: Instalar Perl de desarrollo
+        shell: pwsh
+        run: |
+          choco install strawberryperl --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar Strawberry Perl" }
+          $perlDir = "C:\\Strawberry\\perl\\bin"
+          $cDir = "C:\\Strawberry\\c\\bin"
+          "$perlDir" | Out-File -FilePath $env:GITHUB_PATH -Append
+          "$cDir" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - name: Preparar PAR Packer
+        shell: pwsh
+        run: |
+          perl -v
+          if ($LASTEXITCODE -ne 0) { throw "Perl no disponible" }
+          cpanm --notest PAR::Packer
+          if ($LASTEXITCODE -ne 0) { throw "PAR::Packer no pudo instalarse; verificar compilador y dependencias" }
+          pp --version
+          if ($LASTEXITCODE -ne 0) { throw "pp no disponible" }
+      - name: Reconstruir copia experimental (sin publicar)
+        shell: pwsh
+        run: |
+          ./tools/build_gcstar_par.ps1 -OutputDir "build-gcstar-experimental"
+      - name: Guardar SOLO artefacto experimental
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcstar-par-experimental-NO-DISTRIBUIR
+          path: build-gcstar-experimental/gcstar-experimental.exe
+          if-no-files-found: error
+          retention-days: 7

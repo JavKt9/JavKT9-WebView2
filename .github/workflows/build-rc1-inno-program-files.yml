@@ -1,0 +1,137 @@
+name: Compilar RC1 con Inno Setup (Program Files)
+
+on:
+  push:
+    branches: [rc-0.8.1-inno-setup-program-files]
+    paths:
+      - 'installer-rc1-github/**'
+      - '.github/workflows/build-rc1-inno-program-files.yml'
+  workflow_dispatch:
+
+permissions:
+  # Las releases en borrador requieren acceso de escritura para lectura API.
+  contents: write
+
+jobs:
+  inno-setup:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Obtener fuentes
+        uses: actions/checkout@v4
+      - name: Descargar payload integrado de la release privada
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path build-rc1 | Out-Null
+          # gh release download <tag> no encuentra releases en estado borrador.
+          # Consultamos la API autenticada y seleccionamos el asset por nombre,
+          # sin IDs inventados ni cambiar la visibilidad de la release.
+          $releases = gh api "repos/${{ github.repository }}/releases?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "No se pudieron consultar las releases" }
+          $release = $releases | Where-Object { $_.tag_name -eq "v0.8.1-rc1" } | Select-Object -First 1
+          if (!$release) { throw "No existe la release borrador RC1" }
+          $asset = $release.assets | Where-Object { $_.name -eq "JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_Setup_Windows_x64.exe" } | Select-Object -First 1
+          if (!$asset) { throw "No existe el asset integrado de la RC1" }
+          if ($asset.digest -ne "sha256:bb45bce1024598abc9688bc20abedc7083ac3ad103bd470ae619a11640f5ff88") { throw "SHA-256 inesperado en el asset de la release" }
+          $dest = "build-rc1/JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_Setup_Windows_x64.exe"
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/octet-stream"; "X-GitHub-Api-Version" = "2022-11-28" }
+          Invoke-WebRequest -Uri "https://api.github.com/repos/${{ github.repository }}/releases/assets/$($asset.id)" -Headers $headers -OutFile $dest -MaximumRedirection 5 -ErrorAction Stop
+          if (!(Test-Path $dest)) { throw "Falta el EXE integrado" }
+          if ((Get-Item $dest).Length -ne 183284984) { throw "Tamaño incorrecto del asset descargado" }
+      - name: Extraer contenido original verificado sin modificar JAVkt9
+        shell: pwsh
+        run: |
+          python installer-rc1-github/extract_candidate.py "build-rc1/JAVkt9_0.8.1_RC1_GITHUB_CANDIDATA_Setup_Windows_x64.exe" "installer-rc1-github/Payload"
+          if ($LASTEXITCODE -ne 0) { throw "El payload no pasó verificación" }
+      - name: Compilar lanzador RC1 con cierre sin alerta 255
+        shell: pwsh
+        run: |
+          Push-Location src/public-launcher-rc1
+          try {
+            $env:GO111MODULE = "off"
+            go test .
+            if ($LASTEXITCODE -ne 0) { throw "Fallaron pruebas del lanzador" }
+            go build -trimpath -ldflags="-s -w -H windowsgui" -o "../../installer-rc1-github/Payload/JavKT9.exe" .
+            if ($LASTEXITCODE -ne 0) { throw "Fallo la compilacion del lanzador RC1" }
+          } finally { Pop-Location }
+          if (!(Test-Path "installer-rc1-github/Payload/JavKT9.exe")) { throw "Falta el lanzador corregido" }
+      - name: Instalar Inno Setup 6
+        shell: pwsh
+        run: |
+          if (!(Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar Inno Setup" }
+          }
+      - name: Preparar imagenes del asistente desde el icono de JAVkt9
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $iconPath = (Resolve-Path "installer/JavKT9.ico").Path
+          $icon = New-Object System.Drawing.Icon($iconPath, 128, 128)
+          try {
+            $logo = $icon.ToBitmap()
+            try {
+              foreach ($spec in @(
+                @{File="WizardImage.bmp"; Width=164; Height=314; LogoSize=128},
+                @{File="WizardSmallImage.bmp"; Width=55; Height=55; LogoSize=48}
+              )) {
+                $bmp = New-Object System.Drawing.Bitmap($spec.Width, $spec.Height)
+                try {
+                  $gfx = [System.Drawing.Graphics]::FromImage($bmp)
+                  try {
+                    $gfx.Clear([System.Drawing.Color]::FromArgb(235, 243, 249))
+                    $gfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                    $x = [int](($spec.Width - $spec.LogoSize) / 2)
+                    $y = [int](($spec.Height - $spec.LogoSize) / 2)
+                    $gfx.DrawImage($logo, $x, $y, $spec.LogoSize, $spec.LogoSize)
+                  } finally { $gfx.Dispose() }
+                  $bmp.Save((Join-Path (Resolve-Path "installer-rc1-github").Path $spec.File), [System.Drawing.Imaging.ImageFormat]::Bmp)
+                } finally { $bmp.Dispose() }
+              }
+            } finally { $logo.Dispose() }
+          } finally { $icon.Dispose() }
+          if (!(Test-Path "installer-rc1-github/WizardImage.bmp")) { throw "Falta imagen de bienvenida" }
+          if (!(Test-Path "installer-rc1-github/WizardSmallImage.bmp")) { throw "Falta imagen pequeña" }
+      - name: Compilar instalador visual Windows x64
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "installer-rc1-github/JavKT9.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Fallo compilacion Inno Setup" }
+          $exe = "output-rc1-github/JAVkt9-0.8.1-RC1-GitHub-Setup-Windows-x64.exe"
+          if (!(Test-Path $exe)) { throw "No se generó el Setup Inno" }
+          Get-FileHash $exe -Algorithm SHA256 | Format-List | Out-File "output-rc1-github/SHA256.txt"
+          Get-Item $exe | Select-Object Name,Length | Format-List
+      - name: Guardar nuevo EXE en la release borrador (sin publicar)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = "output-rc1-github/JAVkt9-0.8.1-RC1-GitHub-Setup-Windows-x64.exe"
+          $assetName = "JAVkt9_0.8.1_RC1_INNO_Setup_Logo_Escritorio_Windows_x64.exe"
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $releases = gh api "repos/${{ github.repository }}/releases?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "No se pudieron consultar las releases" }
+          $release = $releases | Where-Object { $_.tag_name -eq "v0.8.1-rc1" } | Select-Object -First 1
+          if (!$release -or !$release.draft) { throw "La release RC1 debe seguir en borrador" }
+          $existing = $release.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
+          if ($existing) {
+            if ($existing.digest -ne "sha256:$hash") { throw "Ya existe otro asset con el mismo nombre y hash distinto" }
+            Write-Host "Asset ya subido con hash verificado: $assetName"
+            exit 0
+          }
+          $url = "https://uploads.github.com/repos/${{ github.repository }}/releases/$($release.id)/assets?name=$assetName"
+          & curl.exe --fail-with-body --silent --show-error --retry 2 --connect-timeout 30 -X POST -H "Authorization: Bearer $env:GH_TOKEN" -H "Accept: application/vnd.github+json" -H "Content-Type: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" --data-binary "@$exe" --output "build-rc1/upload-response.json" $url
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content "build-rc1/upload-response.json" -ErrorAction SilentlyContinue
+            throw "Fallo subida del EXE a la release borrador"
+          }
+          $uploaded = Get-Content "build-rc1/upload-response.json" -Raw | ConvertFrom-Json
+          if ($uploaded.name -ne $assetName -or $uploaded.state -ne "uploaded" -or $uploaded.digest -ne "sha256:$hash") {
+            throw "La API no confirmó nombre, estado y SHA-256 del EXE"
+          }
+          Write-Host "OK: nuevo instalador Inno guardado en borrador; NO publicado."
+          Write-Host "Nombre: $assetName"
+          Write-Host "SHA-256: $hash"
