@@ -123,6 +123,38 @@ jobs:
             Sort-Object -Unique |
             Set-Content (Join-Path $out 'DEPENDENCIAS_DETECTADAS.txt') -Encoding utf8
 
+      - name: Diagnostico de portabilidad sin Cygwin en PATH
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = 'out-gcstar-cygwin-experimental'
+          $exe = (Resolve-Path (Join-Path $out 'gcstar-cygwin-experimental.exe')).Path
+          $report = Join-Path $out 'PRUEBA_PATH_LIMPIO.txt'
+          $oldPath = $env:PATH
+          try {
+            $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+            $stdout = Join-Path $env:RUNNER_TEMP 'gcstar-path-clean-stdout.txt'
+            $stderr = Join-Path $env:RUNNER_TEMP 'gcstar-path-clean-stderr.txt'
+            $p = Start-Process -FilePath $exe -ArgumentList '--version' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            if (-not $p.WaitForExit(20000)) {
+              Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+              $status = 'TIMEOUT (20 segundos)'
+            } else {
+              $status = "Codigo de salida: $($p.ExitCode)"
+            }
+            @(
+              'DIAGNOSTICO LIMITADO: Windows runner con PATH reducido, NO VM limpia.',
+              $status,
+              'La GUI no se ha probado. Un resultado positivo NO autoriza distribucion.',
+              'stdout:', (Get-Content $stdout -Raw -ErrorAction SilentlyContinue),
+              'stderr:', (Get-Content $stderr -Raw -ErrorAction SilentlyContinue)
+            ) | Set-Content $report -Encoding utf8
+          } catch {
+            @('DIAGNOSTICO FALLIDO, no bloquea la compilacion.', $_.Exception.Message) | Set-Content $report -Encoding utf8
+          } finally {
+            $env:PATH = $oldPath
+          }
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
@@ -136,7 +168,8 @@ jobs:
             'out-gcstar-cygwin-experimental/CYGWIN_PAQUETES_INSTALADOS.txt',
             'out-gcstar-cygwin-experimental/CYGWIN_DLL_DIAGNOSTICO.txt',
             'out-gcstar-cygwin-experimental/AUDITORIA_PENDIENTES.txt',
-            'out-gcstar-cygwin-experimental/DEPENDENCIAS_DETECTADAS.txt'
+            'out-gcstar-cygwin-experimental/DEPENDENCIAS_DETECTADAS.txt',
+            'out-gcstar-cygwin-experimental/PRUEBA_PATH_LIMPIO.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
