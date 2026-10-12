@@ -11,8 +11,8 @@ $pp = Get-Command pp -ErrorAction SilentlyContinue
 if (!$perl -or !$pp) { throw "Se requieren perl y pp (PAR::Packer) para compilar; no sustituyas ejecutables existentes" }
 & perl -MPAR::Packer -e "print qq(PAR::Packer disponible\\n)"
 if ($LASTEXITCODE -ne 0) { throw "PAR::Packer no funciona en este entorno" }
-& perl -c $source
-if ($LASTEXITCODE -ne 0) { throw "Error de sintaxis en el script embebido" }
+& perl -I $lib -c $source
+if ($LASTEXITCODE -ne 0) { throw "No se pudo compilar el script: revisar módulos Perl faltantes en el log" }
 New-Item -ItemType Directory -Force $OutputDir | Out-Null
 $out = (Resolve-Path $OutputDir).Path
 $target = Join-Path $out "gcstar-experimental.exe"
