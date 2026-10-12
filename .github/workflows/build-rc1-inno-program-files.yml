@@ -64,6 +64,36 @@ jobs:
             choco install innosetup --no-progress -y
             if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar Inno Setup" }
           }
+      - name: Preparar imagenes del asistente desde el icono de JAVkt9
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $iconPath = (Resolve-Path "installer/JavKT9.ico").Path
+          $icon = New-Object System.Drawing.Icon($iconPath, 128, 128)
+          try {
+            $logo = $icon.ToBitmap()
+            try {
+              foreach ($spec in @(
+                @{File="WizardImage.bmp"; Width=164; Height=314; LogoSize=128},
+                @{File="WizardSmallImage.bmp"; Width=55; Height=55; LogoSize=48}
+              )) {
+                $bmp = New-Object System.Drawing.Bitmap($spec.Width, $spec.Height)
+                try {
+                  $gfx = [System.Drawing.Graphics]::FromImage($bmp)
+                  try {
+                    $gfx.Clear([System.Drawing.Color]::FromArgb(235, 243, 249))
+                    $gfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                    $x = [int](($spec.Width - $spec.LogoSize) / 2)
+                    $y = [int](($spec.Height - $spec.LogoSize) / 2)
+                    $gfx.DrawImage($logo, $x, $y, $spec.LogoSize, $spec.LogoSize)
+                  } finally { $gfx.Dispose() }
+                  $bmp.Save((Join-Path (Resolve-Path "installer-rc1-github").Path $spec.File), [System.Drawing.Imaging.ImageFormat]::Bmp)
+                } finally { $bmp.Dispose() }
+              }
+            } finally { $logo.Dispose() }
+          } finally { $icon.Dispose() }
+          if (!(Test-Path "installer-rc1-github/WizardImage.bmp")) { throw "Falta imagen de bienvenida" }
+          if (!(Test-Path "installer-rc1-github/WizardSmallImage.bmp")) { throw "Falta imagen pequeña" }
       - name: Compilar instalador visual Windows x64
         shell: pwsh
         run: |
@@ -80,7 +110,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $exe = "output-rc1-github/JAVkt9-0.8.1-RC1-GitHub-Setup-Windows-x64.exe"
-          $assetName = "JAVkt9_0.8.1_RC1_INNO_Setup_Cierre_Corregido_Windows_x64.exe"
+          $assetName = "JAVkt9_0.8.1_RC1_INNO_Setup_Logo_Escritorio_Windows_x64.exe"
           $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           $releases = gh api "repos/${{ github.repository }}/releases?per_page=100" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { throw "No se pudieron consultar las releases" }
