@@ -48,6 +48,7 @@ jobs:
             }
           }
           Write-Host "Diagnostico solamente: los avisos no prueban equivalencia con la RC1."
+          exit 0 # Los modulos ausentes son hallazgos, no detener la inspeccion de PAR::Packer.
 
       - name: Instalar PAR Packer en entorno temporal
         shell: pwsh
