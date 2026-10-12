@@ -217,6 +217,46 @@ jobs:
           $output += 'Pendiente: dependencias transitivas, recursos GTK3, licencias y GUI.'
           $output | Set-Content 'out-gcstar-cygwin-experimental/IMPORTACIONES_PERL.txt' -Encoding utf8
 
+      - name: Probar runtime Perl aislado con DLL directas
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = 'out-gcstar-cygwin-experimental'
+          $temp = Join-Path $env:RUNNER_TEMP 'gcstar-perl-runtime-test'
+          New-Item -ItemType Directory -Path $temp -Force | Out-Null
+          Copy-Item (Join-Path $out 'gcstar-cygwin-experimental.exe') $temp
+          $dllNames = @('cygwin1.dll', 'cygperl5_44.dll', 'cygcrypt-2.dll', 'cyggcc_s-seh-1.dll')
+          foreach ($name in $dllNames) {
+            $source = Join-Path 'C:\cygwin64\bin' $name
+            if (!(Test-Path $source)) { throw "DLL de prueba no encontrada: $name" }
+            Copy-Item $source $temp
+          }
+          $lines = @('EXPERIMENTAL - NO PUBLICAR', 'Solo prueba --version; no verifica GUI, licencias ni Windows limpio.', "DLL copiadas al directorio temporal: $($dllNames -join ', ')")
+          $previousPath = $env:PATH
+          try {
+            $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+            $stdout = Join-Path $temp 'stdout.txt'
+            $stderr = Join-Path $temp 'stderr.txt'
+            try {
+              $proc = Start-Process -FilePath (Join-Path $temp 'gcstar-cygwin-experimental.exe') -ArgumentList '--version' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+              if ($proc.WaitForExit(20000)) {
+                $lines += "Codigo de salida: $($proc.ExitCode)"
+              } else {
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                $lines += 'TIMEOUT: 20 segundos'
+              }
+              $lines += 'stdout:'
+              $lines += [string](Get-Content $stdout -Raw -ErrorAction SilentlyContinue)
+              $lines += 'stderr:'
+              $lines += [string](Get-Content $stderr -Raw -ErrorAction SilentlyContinue)
+            } catch {
+              $lines += "Error de inicio: $($_.Exception.Message)"
+            }
+          } finally {
+            $env:PATH = $previousPath
+          }
+          $lines | Set-Content (Join-Path $out 'PRUEBA_RUNTIME_PERL_AISLADO.txt') -Encoding utf8
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
@@ -233,7 +273,8 @@ jobs:
             'out-gcstar-cygwin-experimental/DEPENDENCIAS_DETECTADAS.txt',
             'out-gcstar-cygwin-experimental/PRUEBA_PATH_LIMPIO.txt',
             'out-gcstar-cygwin-experimental/DIAGNOSTICO_DLL_AISLADO.txt',
-            'out-gcstar-cygwin-experimental/IMPORTACIONES_PERL.txt'
+            'out-gcstar-cygwin-experimental/IMPORTACIONES_PERL.txt',
+            'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_PERL_AISLADO.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
