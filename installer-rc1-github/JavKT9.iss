@@ -24,6 +24,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 WizardStyle=modern
+WizardImageFile=WizardImage.bmp
+WizardSmallImageFile=WizardSmallImage.bmp
 CloseApplications=no
 RestartApplications=no
 DisableProgramGroupPage=yes
@@ -40,16 +42,13 @@ Uninstallable=yes
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 
-[Tasks]
-Name: "desktopicon"; Description: "Crear acceso directo en el escritorio"; GroupDescription: "Accesos directos:"; Flags: checkedonce
-
 [Files]
 Source: "Payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\installer\JavKT9.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\JAVkt9 0.8.1 RC1"; Filename: "{app}\JavKT9.exe"; WorkingDir: "{app}"; IconFilename: "{app}\JavKT9.ico"
-Name: "{autodesktop}\JAVkt9 0.8.1 RC1"; Filename: "{app}\JavKT9.exe"; WorkingDir: "{app}"; IconFilename: "{app}\JavKT9.ico"; Tasks: desktopicon
+Name: "{autodesktop}\JAVkt9 0.8.1 RC1"; Filename: "{app}\JavKT9.exe"; WorkingDir: "{app}"; IconFilename: "{app}\JavKT9.ico"
 
 [Run]
 Filename: "{app}\JavKT9.exe"; Description: "Abrir JAVkt9 ahora"; Flags: nowait postinstall skipifsilent
