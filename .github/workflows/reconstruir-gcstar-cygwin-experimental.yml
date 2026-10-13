@@ -529,7 +529,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $report = 'out-gcstar-cygwin-experimental/MODULOS_EXTRAIDOS_PAR.txt',
             'out-gcstar-cygwin-experimental/INSPECCION_ARCHIVO_PAR.txt',
-            'out-gcstar-cygwin-experimental/COMPARACION_EJECUTABLE_COMPLETO_AUXILIAR.txt'
+            'out-gcstar-cygwin-experimental/COMPARACION_EJECUTABLE_COMPLETO_AUXILIAR.txt',
+            'out-gcstar-cygwin-experimental/DEPENDENCIAS_DLL_EXE_Y_PAR.txt'
           $lines = [System.Collections.Generic.List[string]]::new()
           $lines.Add('EXPERIMENTAL - NO PUBLICAR. Inventario de cache PAR, no prueba GUI.')
           $roots = @(Get-ChildItem $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue)
@@ -647,6 +648,51 @@ jobs:
           } finally { $env:PATH = $oldPath }
           $lines.Add('Comparar con PRUEBA_DLL_EN_CACHE_PAR.txt para resultado del auxiliar.')
           $lines.Add('Un resultado CLI positivo no valida GUI, portabilidad ni licencias.')
+          $lines | Set-Content $report -Encoding utf8
+          Get-Content $report | ForEach-Object { Write-Host $_ }
+          $global:LASTEXITCODE = 0
+
+      - name: Diagnosticar dependencias DLL del EXE completo y auxiliar
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = 'out-gcstar-cygwin-experimental/DEPENDENCIAS_DLL_EXE_Y_PAR.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR. Inventario estatico de DLL importadas.')
+          $objdump = 'C:\cygwin64\bin\objdump.exe'
+          if (!(Test-Path $objdump)) {
+            $lines.Add('objdump.exe no encontrado: diagnostico omitido, no implica ausencia de DLL.')
+          } else {
+            $root = Join-Path $env:RUNNER_TEMP 'gcstar-full-exe-retest'
+            $targets = [System.Collections.Generic.List[string]]::new()
+            $targets.Add((Resolve-Path 'out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe').Path)
+            if (Test-Path $root) {
+              foreach ($file in Get-ChildItem $root -File | Where-Object { $_.Extension -in @('.exe','.dll') }) { $targets.Add($file.FullName) }
+            }
+            foreach ($dir in Get-ChildItem $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue) {
+              foreach ($file in Get-ChildItem $dir.FullName -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.exe','.dll') -or $_.Name -eq 'gcstar-cygwin-experimental' } | Select-Object -First 15) { $targets.Add($file.FullName) }
+            }
+            foreach ($target in $targets | Select-Object -Unique) {
+              $lines.Add("=== Archivo: $target ===")
+              $output = @(& $objdump -p $target 2>&1)
+              $exitCode = $LASTEXITCODE
+              $lines.Add("objdump codigo: $exitCode")
+              if ($exitCode -ne 0) {
+                foreach ($line in $output | Select-Object -First 8) { $lines.Add([string]$line) }
+                continue
+              }
+              $imports = @($output | ForEach-Object { if ([string]$_ -match 'DLL Name:\s*(\S+)') { $Matches[1] } } | Sort-Object -Unique)
+              foreach ($dll in $imports) {
+                $local = Join-Path (Split-Path $target -Parent) $dll
+                $cygwin = Join-Path 'C:\cygwin64\bin' $dll
+                $system = Join-Path "$env:SystemRoot\System32" $dll
+                $lines.Add("DLL: $dll | local=$(Test-Path $local) | cygwin=$(Test-Path $cygwin) | system32=$(Test-Path $system)")
+              }
+              if ($imports.Count -eq 0) { $lines.Add('Sin importaciones detectadas por objdump.') }
+            }
+          }
+          $lines.Add('Dependencias dinamicas y carga de modulos Perl pueden no aparecer en objdump.')
+          $lines.Add('La existencia de una DLL no garantiza compatibilidad ni portabilidad.')
           $lines | Set-Content $report -Encoding utf8
           Get-Content $report | ForEach-Object { Write-Host $_ }
           $global:LASTEXITCODE = 0
