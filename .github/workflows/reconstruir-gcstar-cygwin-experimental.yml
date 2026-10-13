@@ -528,7 +528,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $report = 'out-gcstar-cygwin-experimental/MODULOS_EXTRAIDOS_PAR.txt',
-            'out-gcstar-cygwin-experimental/INSPECCION_ARCHIVO_PAR.txt'
+            'out-gcstar-cygwin-experimental/INSPECCION_ARCHIVO_PAR.txt',
+            'out-gcstar-cygwin-experimental/COMPARACION_EJECUTABLE_COMPLETO_AUXILIAR.txt'
           $lines = [System.Collections.Generic.List[string]]::new()
           $lines.Add('EXPERIMENTAL - NO PUBLICAR. Inventario de cache PAR, no prueba GUI.')
           $roots = @(Get-ChildItem $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue)
@@ -602,6 +603,52 @@ jobs:
           Get-Content $report | ForEach-Object { Write-Host $_ }
           # El ultimo comando nativo (unzip) puede dejar LASTEXITCODE=9 aunque
           # el diagnostico haya terminado; no convertirlo en fallo del workflow.
+          $global:LASTEXITCODE = 0
+
+      - name: Comparar ejecutable completo y auxiliar PAR en PATH restringido
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = 'out-gcstar-cygwin-experimental/COMPARACION_EJECUTABLE_COMPLETO_AUXILIAR.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR. Comparacion CLI, sin pruebas GUI.')
+          $outer = (Resolve-Path 'out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe').Path
+          $cacheRoot = Join-Path $env:TEMP 'par-*'
+          $children = @(Get-ChildItem $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue | ForEach-Object {
+            Get-ChildItem $_.FullName -Recurse -File -Filter 'gcstar-cygwin-experimental' -ErrorAction SilentlyContinue
+          })
+          $lines.Add("Auxiliares encontrados: $($children.Count)")
+          $testDir = Join-Path $env:RUNNER_TEMP 'gcstar-full-exe-retest'
+          New-Item -ItemType Directory -Force $testDir | Out-Null
+          $fullExe = Join-Path $testDir 'gcstar-cygwin-experimental.exe'
+          Copy-Item $outer $fullExe -Force
+          foreach ($dll in @('cygwin1.dll','cyggcc_s-seh-1.dll','cygperl5_44.dll','cygcrypt-2.dll')) {
+            $src = Join-Path 'C:\cygwin64\bin' $dll
+            if (Test-Path $src) { Copy-Item $src $testDir -Force; $lines.Add("DLL de prueba: $dll") }
+            else { $lines.Add("DLL ausente en Cygwin: $dll") }
+          }
+          $oldPath = $env:PATH
+          try {
+            $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+            $stdout = Join-Path $testDir 'full-stdout.txt'
+            $stderr = Join-Path $testDir 'full-stderr.txt'
+            try {
+              $p = Start-Process -FilePath $fullExe -ArgumentList '--version' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+              if ($p.WaitForExit(30000)) {
+                $p.Refresh()
+                $lines.Add("EXE completo: codigo $($p.ExitCode)")
+              } else {
+                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                $lines.Add('EXE completo: TIMEOUT 30 segundos')
+              }
+            } catch { $lines.Add("EXE completo: error $($_.Exception.Message)") }
+            $lines.Add('EXE completo stdout: ' + [string](Get-Content $stdout -Raw -ErrorAction SilentlyContinue))
+            $lines.Add('EXE completo stderr: ' + [string](Get-Content $stderr -Raw -ErrorAction SilentlyContinue))
+          } finally { $env:PATH = $oldPath }
+          $lines.Add('Comparar con PRUEBA_DLL_EN_CACHE_PAR.txt para resultado del auxiliar.')
+          $lines.Add('Un resultado CLI positivo no valida GUI, portabilidad ni licencias.')
+          $lines | Set-Content $report -Encoding utf8
+          Get-Content $report | ForEach-Object { Write-Host $_ }
           $global:LASTEXITCODE = 0
 
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
