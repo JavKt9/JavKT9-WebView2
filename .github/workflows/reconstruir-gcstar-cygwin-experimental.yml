@@ -721,7 +721,10 @@ jobs:
             'out-gcstar-cygwin-experimental/COMPARACION_PAR_DLL.txt',
             'out-gcstar-cygwin-experimental/PRUEBA_DLL_EN_CACHE_PAR.txt',
             'out-gcstar-cygwin-experimental/DIAGNOSTICO_MODULOS_PERL_PAR.txt',
-            'out-gcstar-cygwin-experimental/MODULOS_EXTRAIDOS_PAR.txt'
+            'out-gcstar-cygwin-experimental/MODULOS_EXTRAIDOS_PAR.txt',
+            'out-gcstar-cygwin-experimental/INSPECCION_ARCHIVO_PAR.txt',
+            'out-gcstar-cygwin-experimental/COMPARACION_EJECUTABLE_COMPLETO_AUXILIAR.txt',
+            'out-gcstar-cygwin-experimental/DEPENDENCIAS_DLL_EXE_Y_PAR.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
