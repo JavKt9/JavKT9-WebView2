@@ -360,7 +360,8 @@ jobs:
             'out-gcstar-cygwin-experimental/DIAGNOSTICO_DLL_AISLADO.txt',
             'out-gcstar-cygwin-experimental/IMPORTACIONES_PERL.txt',
             'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_PERL_AISLADO.txt',
-            'out-gcstar-cygwin-experimental/ANALISIS_DLL_TRANSITIVAS_PAR.txt'
+            'out-gcstar-cygwin-experimental/ANALISIS_DLL_TRANSITIVAS_PAR.txt',
+            'out-gcstar-cygwin-experimental/RASTREO_CARGA_PAR.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
