@@ -530,7 +530,8 @@ jobs:
           $report = 'out-gcstar-cygwin-experimental/MODULOS_EXTRAIDOS_PAR.txt',
             'out-gcstar-cygwin-experimental/INSPECCION_ARCHIVO_PAR.txt',
             'out-gcstar-cygwin-experimental/COMPARACION_EJECUTABLE_COMPLETO_AUXILIAR.txt',
-            'out-gcstar-cygwin-experimental/DEPENDENCIAS_DLL_EXE_Y_PAR.txt'
+            'out-gcstar-cygwin-experimental/DEPENDENCIAS_DLL_EXE_Y_PAR.txt',
+            'out-gcstar-cygwin-experimental/CONTRASTE_PATH_CYGWIN.txt'
           $lines = [System.Collections.Generic.List[string]]::new()
           $lines.Add('EXPERIMENTAL - NO PUBLICAR. Inventario de cache PAR, no prueba GUI.')
           $roots = @(Get-ChildItem $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue)
@@ -648,6 +649,50 @@ jobs:
           } finally { $env:PATH = $oldPath }
           $lines.Add('Comparar con PRUEBA_DLL_EN_CACHE_PAR.txt para resultado del auxiliar.')
           $lines.Add('Un resultado CLI positivo no valida GUI, portabilidad ni licencias.')
+          $lines | Set-Content $report -Encoding utf8
+          Get-Content $report | ForEach-Object { Write-Host $_ }
+          $global:LASTEXITCODE = 0
+
+      - name: Contrastar arranque EXE con y sin PATH Cygwin
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = 'out-gcstar-cygwin-experimental/CONTRASTE_PATH_CYGWIN.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR. Prueba diferencial CLI con y sin bibliotecas Cygwin.')
+          $exe = (Resolve-Path 'out-gcstar-cygwin-experimental/gcstar-cygwin-experimental.exe').Path
+          $dir = Join-Path $env:RUNNER_TEMP 'gcstar-path-contrast'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $copy = Join-Path $dir 'gcstar-cygwin-experimental.exe'
+          Copy-Item $exe $copy -Force
+          foreach ($dll in @('cygwin1.dll','cyggcc_s-seh-1.dll','cygperl5_44.dll','cygcrypt-2.dll')) {
+            $src = Join-Path 'C:\cygwin64\bin' $dll
+            if (Test-Path $src) { Copy-Item $src $dir -Force }
+          }
+          $oldPath = $env:PATH
+          try {
+            foreach ($mode in @('restringido','cygwin_disponible')) {
+              if ($mode -eq 'restringido') { $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot" }
+              else { $env:PATH = "C:\cygwin64\bin;$env:SystemRoot\System32;$env:SystemRoot" }
+              $stdout = Join-Path $dir "$mode.stdout.txt"
+              $stderr = Join-Path $dir "$mode.stderr.txt"
+              $lines.Add("=== Modo $mode ===")
+              try {
+                $p = Start-Process -FilePath $copy -ArgumentList '--version' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+                if ($p.WaitForExit(30000)) {
+                  $p.Refresh()
+                  $lines.Add("Codigo de salida: $($p.ExitCode)")
+                } else {
+                  Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                  $lines.Add('TIMEOUT 30 segundos')
+                }
+              } catch { $lines.Add("Error al iniciar: $($_.Exception.Message)") }
+              $lines.Add('stdout: ' + [string](Get-Content $stdout -Raw -ErrorAction SilentlyContinue))
+              $lines.Add('stderr: ' + [string](Get-Content $stderr -Raw -ErrorAction SilentlyContinue))
+            }
+          } finally { $env:PATH = $oldPath }
+          $lines.Add('Si ambos modos fallan, no asumir que solo faltan DLL.')
+          $lines.Add('El modo con Cygwin disponible NO es prueba de portabilidad.')
           $lines | Set-Content $report -Encoding utf8
           Get-Content $report | ForEach-Object { Write-Host $_ }
           $global:LASTEXITCODE = 0
