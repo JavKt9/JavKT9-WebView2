@@ -600,6 +600,9 @@ jobs:
           $lines.Add('No se modifico el ejecutable ni se realizo prueba GUI.')
           $lines | Set-Content $report -Encoding utf8
           Get-Content $report | ForEach-Object { Write-Host $_ }
+          # El ultimo comando nativo (unzip) puede dejar LASTEXITCODE=9 aunque
+          # el diagnostico haya terminado; no convertirlo en fallo del workflow.
+          $global:LASTEXITCODE = 0
 
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
