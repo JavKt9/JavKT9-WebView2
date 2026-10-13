@@ -496,6 +496,33 @@ jobs:
           Write-Host '=== FIN DEL INFORME ==='
           Write-Host 'NOTA: una ejecucion exitosa del workflow no implica que GCstar sea portable.'
 
+      - name: Diagnosticar modulos Perl faltantes en entorno aislado
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = 'out-gcstar-cygwin-experimental/DIAGNOSTICO_MODULOS_PERL_PAR.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR. Solo inventario, sin cambios a distribucion.')
+          $bash = 'C:\cygwin64\bin\bash.exe'
+          foreach ($module in @('PAR','File::Temp','PAR::Heavy','Archive::Zip')) {
+            $lines.Add("=== Modulo: $module ===")
+            $env:GCSTAR_CHECK_MODULE = $module
+            $output = @(& $bash -lc "perl -M$module -e 1" 2>&1)
+            $lines.Add("Codigo: $LASTEXITCODE")
+            foreach ($line in $output) { $lines.Add([string]$line) }
+          }
+          Remove-Item Env:GCSTAR_CHECK_MODULE -ErrorAction SilentlyContinue
+          $lines.Add('=== Ubicaciones habituales ===')
+          foreach ($base in @('C:\cygwin64\usr\share\perl5','C:\cygwin64\usr\lib\perl5','C:\cygwin64\usr\local\share\perl5','C:\cygwin64\usr\local\lib\perl5')) {
+            foreach ($rel in @('PAR.pm','File\Temp.pm')) {
+              $found = @(Get-ChildItem $base -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName.EndsWith($rel,[StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 3 -ExpandProperty FullName)
+              foreach ($item in $found) { $lines.Add("$rel : $item") }
+            }
+          }
+          $lines.Add('NOTA: esta prueba no acredita GUI, portabilidad ni licencias.')
+          $lines | Set-Content $report -Encoding utf8
+          Get-Content $report | ForEach-Object { Write-Host $_ }
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
@@ -518,7 +545,8 @@ jobs:
             'out-gcstar-cygwin-experimental/RASTREO_CARGA_PAR.txt',
             'out-gcstar-cygwin-experimental/STRACE_CYGWIN_CARGA.txt',
             'out-gcstar-cygwin-experimental/COMPARACION_PAR_DLL.txt',
-            'out-gcstar-cygwin-experimental/PRUEBA_DLL_EN_CACHE_PAR.txt'
+            'out-gcstar-cygwin-experimental/PRUEBA_DLL_EN_CACHE_PAR.txt',
+            'out-gcstar-cygwin-experimental/DIAGNOSTICO_MODULOS_PERL_PAR.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
