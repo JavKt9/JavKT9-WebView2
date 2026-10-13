@@ -559,12 +559,20 @@ jobs:
           $lines.Add("EXE presente: $(Test-Path $exe)")
           $lines.Add('=== Contenido interno segun unzip -l (si es ZIP/PAR legible) ===')
           $bash = 'C:\cygwin64\bin\bash.exe'
-          $workspace = $env:GITHUB_WORKSPACE
           $env:GCSTAR_EXE_WIN = (Resolve-Path $exe).Path
           $cmd = 'unzip -l "$(cygpath -u "$GCSTAR_EXE_WIN")"'
-          $output = @(& $bash -lc $cmd 2>&1)
-          $lines.Add("Codigo unzip: $LASTEXITCODE")
-          foreach ($line in $output | Select-Object -First 200) { $lines.Add([string]$line) }
+          # Cygwin bash login puede limpiar variables de entorno; pasar ruta por argumento.
+          $cygpath = @(& 'C:\cygwin64\bin\cygpath.exe' -u $env:GCSTAR_EXE_WIN 2>&1)
+          $lines.Add("Ruta Windows: $env:GCSTAR_EXE_WIN")
+          $lines.Add("Ruta Cygwin: $($cygpath -join ' ')")
+          if ($LASTEXITCODE -eq 0 -and $cygpath.Count -eq 1) {
+            $safePath = ([string]$cygpath[0]).Replace("'", "'\\''")
+            $output = @(& $bash -lc "unzip -l '$safePath'" 2>&1)
+            $lines.Add("Codigo unzip: $LASTEXITCODE")
+            foreach ($line in $output | Select-Object -First 200) { $lines.Add([string]$line) }
+          } else {
+            $lines.Add('No se pudo convertir la ruta a Cygwin; inspeccion ZIP omitida.')
+          }
           $lines.Add('=== Archivos PAR encontrados en rutas temporales conocidas ===')
           foreach ($base in @($env:TEMP,$env:TMP,$env:RUNNER_TEMP)) {
             $lines.Add("Base: $base")
