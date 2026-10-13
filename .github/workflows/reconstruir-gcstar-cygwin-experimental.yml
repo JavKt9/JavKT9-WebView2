@@ -435,6 +435,57 @@ jobs:
           $lines.Add('NOTA: importaciones estaticas no incluyen bibliotecas cargadas dinamicamente.')
           $lines | Set-Content $report -Encoding utf8
 
+      - name: Probar ejecutable PAR con DLL faltantes en cache temporal
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = 'out-gcstar-cygwin-experimental'
+          $report = Join-Path $out 'PRUEBA_DLL_EN_CACHE_PAR.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR. Prueba aislada CLI, sin cambios al empaquetado distribuido.')
+          $extracted = @(Get-ChildItem $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue | ForEach-Object {
+            Get-ChildItem $_.FullName -Recurse -File -Filter 'gcstar-cygwin-experimental' -ErrorAction SilentlyContinue
+          })
+          $lines.Add("Ejecutables PAR encontrados: $($extracted.Count)")
+          foreach ($file in $extracted) {
+            $lines.Add('=== Prueba en copia aislada de la cache PAR ===')
+            $testDir = Join-Path $env:RUNNER_TEMP 'par-dll-retest'
+            New-Item -ItemType Directory -Force $testDir | Out-Null
+            Copy-Item (Join-Path $file.DirectoryName '*') $testDir -Recurse -Force
+            foreach ($dll in @('cygwin1.dll','cyggcc_s-seh-1.dll')) {
+              $src = Join-Path 'C:\cygwin64\bin' $dll
+              if (!(Test-Path $src)) { throw "DLL de prueba ausente: $dll" }
+              Copy-Item $src $testDir -Force
+              $lines.Add("DLL agregada solo a copia temporal: $dll")
+            }
+            $exe = Join-Path $testDir 'gcstar-cygwin-experimental'
+            $stdout = Join-Path $testDir 'test-stdout.txt'
+            $stderr = Join-Path $testDir 'test-stderr.txt'
+            $oldPath = $env:PATH
+            try {
+              $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+              try {
+                $p = Start-Process -FilePath $exe -ArgumentList '--version' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+                if ($p.WaitForExit(30000)) {
+                  $p.Refresh()
+                  $lines.Add("Codigo de salida: $($p.ExitCode)")
+                } else {
+                  Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+                  $lines.Add('TIMEOUT 30 segundos')
+                }
+              } catch {
+                $lines.Add("Error al ejecutar: $($_.Exception.Message)")
+              }
+            } finally {
+              $env:PATH = $oldPath
+            }
+            $lines.Add('stdout: ' + [string](Get-Content $stdout -Raw -ErrorAction SilentlyContinue))
+            $lines.Add('stderr: ' + [string](Get-Content $stderr -Raw -ErrorAction SilentlyContinue))
+          }
+          if ($extracted.Count -eq 0) { $lines.Add('Sin cache PAR; no se pudo realizar la prueba.') }
+          $lines.Add('Esta prueba no demuestra portabilidad, GUI ni cumplimiento de licencias.')
+          $lines | Set-Content $report -Encoding utf8
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
@@ -456,7 +507,8 @@ jobs:
             'out-gcstar-cygwin-experimental/ANALISIS_DLL_TRANSITIVAS_PAR.txt',
             'out-gcstar-cygwin-experimental/RASTREO_CARGA_PAR.txt',
             'out-gcstar-cygwin-experimental/STRACE_CYGWIN_CARGA.txt',
-            'out-gcstar-cygwin-experimental/COMPARACION_PAR_DLL.txt'
+            'out-gcstar-cygwin-experimental/COMPARACION_PAR_DLL.txt',
+            'out-gcstar-cygwin-experimental/PRUEBA_DLL_EN_CACHE_PAR.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
