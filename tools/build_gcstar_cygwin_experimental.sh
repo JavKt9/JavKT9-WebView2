@@ -20,7 +20,10 @@ echo "Comprobando sintaxis del script recuperado PAR con los modulos de Cygwin"
 perl -I "$lib" -c "$src"
 
 echo "Empaquetando solamente en entorno experimental; NO instalador RC1"
+# Forzar inclusion de modulos que el hijo PAR no encuentra en la prueba aislada.
+# Sigue siendo un experimento; no demuestra portabilidad ni GUI.
 pp -I "$lib" -M Gtk3 -M Glib::Object::Introspection \
+   -M PAR -M PAR::Heavy -M File::Temp -M Archive::Zip \
    -o "$out/gcstar-cygwin-experimental.exe" "$src"
 
 sha256sum "$out/gcstar-cygwin-experimental.exe" | tee "$out/SHA256.txt"
