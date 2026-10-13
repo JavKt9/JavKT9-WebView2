@@ -486,6 +486,16 @@ jobs:
           $lines.Add('Esta prueba no demuestra portabilidad, GUI ni cumplimiento de licencias.')
           $lines | Set-Content $report -Encoding utf8
 
+      - name: Mostrar resultado real de prueba DLL en logs
+        shell: pwsh
+        run: |
+          $report = 'out-gcstar-cygwin-experimental/PRUEBA_DLL_EN_CACHE_PAR.txt'
+          if (!(Test-Path $report)) { throw 'No existe el informe de prueba de DLL' }
+          Write-Host '=== RESULTADO REAL DE LA PRUEBA PAR DLL ==='
+          Get-Content $report | ForEach-Object { Write-Host $_ }
+          Write-Host '=== FIN DEL INFORME ==='
+          Write-Host 'NOTA: una ejecucion exitosa del workflow no implica que GCstar sea portable.'
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
