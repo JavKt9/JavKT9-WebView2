@@ -531,6 +531,7 @@ jobs:
             'out-gcstar-cygwin-experimental/INSPECCION_ARCHIVO_PAR.txt',
             'out-gcstar-cygwin-experimental/COMPARACION_EJECUTABLE_COMPLETO_AUXILIAR.txt',
             'out-gcstar-cygwin-experimental/DEPENDENCIAS_DLL_EXE_Y_PAR.txt',
+            'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_SIN_PAR.txt',
             'out-gcstar-cygwin-experimental/CONTRASTE_PATH_CYGWIN.txt'
           $lines = [System.Collections.Generic.List[string]]::new()
           $lines.Add('EXPERIMENTAL - NO PUBLICAR. Inventario de cache PAR, no prueba GUI.')
@@ -738,6 +739,49 @@ jobs:
           }
           $lines.Add('Dependencias dinamicas y carga de modulos Perl pueden no aparecer en objdump.')
           $lines.Add('La existencia de una DLL no garantiza compatibilidad ni portabilidad.')
+          $lines | Set-Content $report -Encoding utf8
+          Get-Content $report | ForEach-Object { Write-Host $_ }
+          $global:LASTEXITCODE = 0
+
+      - name: Probar runtime Perl GTK3 autocontenido sin PAR
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = 'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_SIN_PAR.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - PRIMERA PRUEBA SIN PAR. NO PUBLICAR.')
+          $root = 'C:\cygwin64'
+          $stage = Join-Path $env:RUNNER_TEMP 'gcstar-runtime-sin-par'
+          $bin = Join-Path $stage 'bin'
+          New-Item -ItemType Directory -Force $bin | Out-Null
+          # Copia inicial amplia de DLL para aislar el problema de PAR; se reducira despues.
+          Copy-Item "$root\bin\*.dll" $bin -Force
+          Copy-Item "$root\bin\perl.exe" $bin -Force
+          $lines.Add("DLL copiadas: $(@(Get-ChildItem $bin -Filter '*.dll').Count)")
+          $oldPath = $env:PATH
+          try {
+            $env:PATH = "$bin;$env:SystemRoot\System32;$env:SystemRoot"
+            $env:PERL5LIB = ''
+            $perl = Join-Path $bin 'perl.exe'
+            foreach ($test in @(
+              @{ Name='perl-version'; Args=@('-v') },
+              @{ Name='gtk3-import'; Args=@('-MGtk3','-e','print qq(GTK3_IMPORT_OK\n)') }
+            )) {
+              $lines.Add("=== $($test.Name) ===")
+              $stdout = Join-Path $stage "$($test.Name).out.txt"
+              $stderr = Join-Path $stage "$($test.Name).err.txt"
+              try {
+                $p = Start-Process -FilePath $perl -ArgumentList $test.Args -WorkingDirectory $stage -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+                if ($p.WaitForExit(20000)) { $p.Refresh(); $lines.Add("Codigo: $($p.ExitCode)") }
+                else { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; $lines.Add('TIMEOUT 20s') }
+              } catch { $lines.Add("Error: $($_.Exception.Message)") }
+              $lines.Add('stdout: ' + [string](Get-Content $stdout -Raw -ErrorAction SilentlyContinue))
+              $lines.Add('stderr: ' + [string](Get-Content $stderr -Raw -ErrorAction SilentlyContinue))
+            }
+          } finally { $env:PATH = $oldPath; Remove-Item Env:PERL5LIB -ErrorAction SilentlyContinue }
+          $lines.Add('Esta prueba no contiene todavia el arbol lib/share de Perl y GTK3.')
+          $lines.Add('Si Gtk3 falla por rutas o modulos, es informacion diagnostica; no valida portabilidad.')
+          $lines.Add('No se modifico RC1 ni se probo la interfaz grafica.')
           $lines | Set-Content $report -Encoding utf8
           Get-Content $report | ForEach-Object { Write-Host $_ }
           $global:LASTEXITCODE = 0
