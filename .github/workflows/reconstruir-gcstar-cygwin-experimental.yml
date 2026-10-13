@@ -567,9 +567,19 @@ jobs:
           $lines.Add("Ruta Cygwin: $($cygpath -join ' ')")
           if ($LASTEXITCODE -eq 0 -and $cygpath.Count -eq 1) {
             $safePath = ([string]$cygpath[0]).Replace("'", "'\\''")
-            $output = @(& $bash -lc "unzip -l '$safePath'" 2>&1)
-            $lines.Add("Codigo unzip: $LASTEXITCODE")
+            # PowerShell 7 puede elevar stderr nativo con ErrorActionPreference=Stop.
+            # unzip=9 indica formato/ruta no legible; debe quedar registrado, no abortar.
+            $previousPreference = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try {
+              $output = @(& $bash -lc "unzip -l '$safePath'" 2>&1)
+              $unzipExit = $LASTEXITCODE
+            } finally {
+              $ErrorActionPreference = $previousPreference
+            }
+            $lines.Add("Codigo unzip: $unzipExit")
             foreach ($line in $output | Select-Object -First 200) { $lines.Add([string]$line) }
+            if ($unzipExit -ne 0) { $lines.Add('Inspeccion ZIP no disponible; se continua con inventario de cache PAR.') }
           } else {
             $lines.Add('No se pudo convertir la ruta a Cygwin; inspeccion ZIP omitida.')
           }
