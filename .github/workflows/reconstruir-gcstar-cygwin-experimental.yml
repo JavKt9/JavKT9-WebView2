@@ -394,6 +394,47 @@ jobs:
           }
           $lines | Set-Content $report -Encoding utf8
 
+      - name: Comparar ejecutable extraido de PAR y DLL disponibles
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = 'out-gcstar-cygwin-experimental'
+          $report = Join-Path $out 'COMPARACION_PAR_DLL.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR. Inventario de dependencias; no verifica GUI ni licencias.')
+          $cacheFiles = @(Get-ChildItem -Path $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue | ForEach-Object {
+            Get-ChildItem -Path $_.FullName -Recurse -File -Filter 'gcstar-cygwin-experimental' -ErrorAction SilentlyContinue
+          })
+          $objdump = 'C:\cygwin64\bin\objdump.exe'
+          $cygBin = 'C:\cygwin64\bin'
+          $lines.Add("Ejecutables extraidos encontrados: $($cacheFiles.Count)")
+          foreach ($file in $cacheFiles) {
+            $lines.Add('=== Ejecutable extraido ===')
+            $lines.Add("Tamano: $($file.Length) bytes")
+            $imports = @(& $objdump -p $file.FullName 2>&1 | Select-String 'DLL Name:')
+            foreach ($entry in $imports) {
+              $line = [string]$entry
+              $lines.Add($line)
+              if ($line -match 'DLL Name:\s*(\S+)') {
+                $name = $Matches[1]
+                if ($name -match '^(?i:api-ms-|ext-ms-|kernel32\.dll$|ntdll\.dll$|user32\.dll$|advapi32\.dll$|gdi32\.dll$)') {
+                  $lines.Add("  Biblioteca Windows (no copiar): $name")
+                } else {
+                  $inCache = Test-Path (Join-Path $file.DirectoryName $name)
+                  $inCygwin = Test-Path (Join-Path $cygBin $name)
+                  $lines.Add("  En cache PAR: $inCache; en Cygwin bin: $inCygwin")
+                }
+              }
+            }
+            $lines.Add('=== DLL en la carpeta extraida ===')
+            foreach ($dll in (Get-ChildItem $file.DirectoryName -Filter '*.dll' -File -ErrorAction SilentlyContinue)) {
+              $lines.Add($dll.Name)
+            }
+          }
+          if ($cacheFiles.Count -eq 0) { $lines.Add('No se encontro el ejecutable extraido; PAR puede haber limpiado su cache.') }
+          $lines.Add('NOTA: importaciones estaticas no incluyen bibliotecas cargadas dinamicamente.')
+          $lines | Set-Content $report -Encoding utf8
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
@@ -414,7 +455,8 @@ jobs:
             'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_PERL_AISLADO.txt',
             'out-gcstar-cygwin-experimental/ANALISIS_DLL_TRANSITIVAS_PAR.txt',
             'out-gcstar-cygwin-experimental/RASTREO_CARGA_PAR.txt',
-            'out-gcstar-cygwin-experimental/STRACE_CYGWIN_CARGA.txt'
+            'out-gcstar-cygwin-experimental/STRACE_CYGWIN_CARGA.txt',
+            'out-gcstar-cygwin-experimental/COMPARACION_PAR_DLL.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
