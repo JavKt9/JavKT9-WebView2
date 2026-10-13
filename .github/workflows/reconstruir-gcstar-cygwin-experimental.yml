@@ -342,6 +342,58 @@ jobs:
           $lines.Add('El inventario no registra intentos de carga de DLL a nivel de proceso.')
           $lines | Set-Content $report -Encoding utf8
 
+      - name: Diagnosticar carga con strace de Cygwin
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = 'out-gcstar-cygwin-experimental'
+          $report = Join-Path $out 'STRACE_CYGWIN_CARGA.txt'
+          $trace = Join-Path $env:RUNNER_TEMP 'gcstar-cygwin-strace.log'
+          $sandbox = Join-Path $env:RUNNER_TEMP 'gcstar-strace-isolated'
+          New-Item -ItemType Directory -Force -Path $sandbox | Out-Null
+          Copy-Item (Join-Path $out 'gcstar-cygwin-experimental.exe') $sandbox
+          foreach ($dll in @('cygwin1.dll','cygperl5_44.dll','cygcrypt-2.dll','cyggcc_s-seh-1.dll')) {
+            Copy-Item (Join-Path 'C:\cygwin64\bin' $dll) $sandbox
+          }
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR. Rastreo CLI con Cygwin strace; no prueba GUI, licencias ni portabilidad.')
+          $strace = 'C:\cygwin64\bin\strace.exe'
+          if (!(Test-Path $strace)) {
+            $lines.Add('strace.exe no disponible en la instalacion Cygwin del runner.')
+          } else {
+            $oldPath = $env:PATH
+            try {
+              $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+              $target = Join-Path $sandbox 'gcstar-cygwin-experimental.exe'
+              $stdout = Join-Path $sandbox 'strace-stdout.txt'
+              $stderr = Join-Path $sandbox 'strace-stderr.txt'
+              try {
+                $proc = Start-Process -FilePath $strace -ArgumentList @('-f','-o',('"' + $trace + '"'),('"' + $target + '"'),'--version') -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+                if ($proc.WaitForExit(30000)) {
+                  $lines.Add("Codigo de salida de strace: $($proc.ExitCode)")
+                } else {
+                  Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                  $lines.Add('TIMEOUT 30 segundos')
+                }
+                $lines.Add('stderr: ' + [string](Get-Content $stderr -Raw -ErrorAction SilentlyContinue))
+              } catch {
+                $lines.Add("Error al ejecutar strace: $($_.Exception.Message)")
+              }
+            } finally {
+              $env:PATH = $oldPath
+            }
+            if (Test-Path $trace) {
+              $lines.Add('=== Eventos de error o busqueda de bibliotecas (hasta 150) ===')
+              $matches = @(Select-String -Path $trace -Pattern 'dll|\.so|ENOENT|error|failed|cannot open|openat' -ErrorAction SilentlyContinue | Select-Object -Last 150)
+              foreach ($match in $matches) { $lines.Add($match.Line) }
+              $lines.Add('=== Ultimas 80 lineas del rastreo ===')
+              foreach ($line in (Get-Content $trace -Tail 80)) { $lines.Add($line) }
+            } else {
+              $lines.Add('strace no genero archivo de rastreo.')
+            }
+          }
+          $lines | Set-Content $report -Encoding utf8
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
@@ -361,7 +413,8 @@ jobs:
             'out-gcstar-cygwin-experimental/IMPORTACIONES_PERL.txt',
             'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_PERL_AISLADO.txt',
             'out-gcstar-cygwin-experimental/ANALISIS_DLL_TRANSITIVAS_PAR.txt',
-            'out-gcstar-cygwin-experimental/RASTREO_CARGA_PAR.txt'
+            'out-gcstar-cygwin-experimental/RASTREO_CARGA_PAR.txt',
+            'out-gcstar-cygwin-experimental/STRACE_CYGWIN_CARGA.txt'
           )
           foreach ($file in $files) {
             if (!(Test-Path $file)) { throw "Archivo experimental ausente: $file" }
