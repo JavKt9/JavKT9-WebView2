@@ -523,6 +523,29 @@ jobs:
           $lines | Set-Content $report -Encoding utf8
           Get-Content $report | ForEach-Object { Write-Host $_ }
 
+      - name: Inspeccionar modulos realmente extraidos por PAR
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = 'out-gcstar-cygwin-experimental/MODULOS_EXTRAIDOS_PAR.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR. Inventario de cache PAR, no prueba GUI.')
+          $roots = @(Get-ChildItem $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue)
+          $files = @()
+          foreach ($root in $roots) {
+            $files += @(Get-ChildItem $root.FullName -Recurse -File -ErrorAction SilentlyContinue)
+          }
+          $lines.Add("Archivos extraidos encontrados: $($files.Count)")
+          foreach ($pattern in @('PAR.pm','Heavy.pm','Temp.pm','Zip.pm','par-*.zip')) {
+            $lines.Add("=== Busqueda: $pattern ===")
+            $matches = @($files | Where-Object { $_.Name -like $pattern } | Select-Object -First 30 -ExpandProperty FullName)
+            if ($matches.Count -eq 0) { $lines.Add('NO ENCONTRADO en cache PAR') }
+            foreach ($item in $matches) { $lines.Add($item) }
+          }
+          $lines.Add('NOTA: ausencia en cache no demuestra ausencia dentro del archivo empaquetado.')
+          $lines | Set-Content $report -Encoding utf8
+          Get-Content $report | ForEach-Object { Write-Host $_ }
+
       - name: Guardar en release BORRADOR experimental (sin publicar RC1)
         shell: pwsh
         env:
