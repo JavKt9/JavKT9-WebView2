@@ -527,7 +527,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $report = 'out-gcstar-cygwin-experimental/MODULOS_EXTRAIDOS_PAR.txt'
+          $report = 'out-gcstar-cygwin-experimental/MODULOS_EXTRAIDOS_PAR.txt',
+            'out-gcstar-cygwin-experimental/INSPECCION_ARCHIVO_PAR.txt'
           $lines = [System.Collections.Generic.List[string]]::new()
           $lines.Add('EXPERIMENTAL - NO PUBLICAR. Inventario de cache PAR, no prueba GUI.')
           $roots = @(Get-ChildItem $env:TEMP -Directory -Filter 'par-*' -ErrorAction SilentlyContinue)
@@ -543,6 +544,42 @@ jobs:
             foreach ($item in $matches) { $lines.Add($item) }
           }
           $lines.Add('NOTA: ausencia en cache no demuestra ausencia dentro del archivo empaquetado.')
+          $lines | Set-Content $report -Encoding utf8
+          Get-Content $report | ForEach-Object { Write-Host $_ }
+
+      - name: Inspeccionar archivo PAR y directorio exacto de extraccion
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = 'out-gcstar-cygwin-experimental'
+          $report = Join-Path $out 'INSPECCION_ARCHIVO_PAR.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('EXPERIMENTAL - NO PUBLICAR. Diagnostico de archivo PAR y rutas, sin validar portabilidad.')
+          $exe = Join-Path $out 'gcstar-cygwin-experimental.exe'
+          $lines.Add("EXE presente: $(Test-Path $exe)")
+          $lines.Add('=== Contenido interno segun unzip -l (si es ZIP/PAR legible) ===')
+          $bash = 'C:\cygwin64\bin\bash.exe'
+          $workspace = $env:GITHUB_WORKSPACE
+          $env:GCSTAR_EXE_WIN = (Resolve-Path $exe).Path
+          $cmd = 'unzip -l "$(cygpath -u "$GCSTAR_EXE_WIN")"'
+          $output = @(& $bash -lc $cmd 2>&1)
+          $lines.Add("Codigo unzip: $LASTEXITCODE")
+          foreach ($line in $output | Select-Object -First 200) { $lines.Add([string]$line) }
+          $lines.Add('=== Archivos PAR encontrados en rutas temporales conocidas ===')
+          foreach ($base in @($env:TEMP,$env:TMP,$env:RUNNER_TEMP)) {
+            $lines.Add("Base: $base")
+            if (!(Test-Path $base)) { continue }
+            $dirs = @(Get-ChildItem $base -Directory -Filter 'par-*' -ErrorAction SilentlyContinue)
+            foreach ($dir in $dirs) {
+              $lines.Add("PAR dir: $($dir.FullName)")
+              $items = @(Get-ChildItem $dir.FullName -Recurse -File -ErrorAction SilentlyContinue)
+              $lines.Add("Archivos: $($items.Count)")
+              foreach ($item in $items | Select-Object -First 80) { $lines.Add($item.FullName) }
+            }
+          }
+          Remove-Item Env:GCSTAR_EXE_WIN -ErrorAction SilentlyContinue
+          $lines.Add('Un listado ZIP fallido no demuestra ausencia de modulos: pp puede usar otro formato interno.')
+          $lines.Add('No se modifico el ejecutable ni se realizo prueba GUI.')
           $lines | Set-Content $report -Encoding utf8
           Get-Content $report | ForEach-Object { Write-Host $_ }
 
