@@ -10,12 +10,14 @@ jobs:
   perl-bindings:
     runs-on: windows-2022
     timeout-minutes: 55
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
-      - name: Preparar toolchain nativo UCRT64
-        uses: msys2/setup-msys2@v2
+      - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
-          update: true
+          update: false
           install: >-
             mingw-w64-ucrt-x86_64-perl
             mingw-w64-ucrt-x86_64-gtk3
@@ -26,43 +28,54 @@ jobs:
             mingw-w64-ucrt-x86_64-cairo
             mingw-w64-ucrt-x86_64-pango
             mingw-w64-ucrt-x86_64-glib2
-            mingw-w64-ucrt-x86_64-libffi
-      - name: Compilar e inspeccionar bindings Perl
-        shell: msys2 {0}
-        env:
-          PERL_MM_USE_DEFAULT: '1'
-          PERL_EXTUTILS_AUTOINSTALL: '--defaultdeps'
-          PERL_CPANM_OPT: '--notest'
+            curl
+            tar
+      - name: Preparar prerequisitos y Glib fuente
         run: |
-          set -u
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
+          mkdir -p /tmp/perl-bindings
+          perl -MCPAN -e 'CPAN::Shell->notest("install","ExtUtils::Depends","ExtUtils::PkgConfig")' > /tmp/perl-bindings/prereq.log 2>&1 || true
+          perl -MExtUtils::Depends -MExtUtils::PkgConfig -e 'print "PREREQ_OK\n"'
+          cd /tmp/perl-bindings
+          curl -fsSL --retry 2 -o Glib-1.3294.tar.gz https://cpan.metacpan.org/authors/id/X/XA/XAOC/Glib-1.3294.tar.gz
+          tar -xzf Glib-1.3294.tar.gz
+          cd Glib-1.3294
+          perl Makefile.PL > ../glib-config.log 2>&1 || { tail -60 ../glib-config.log; exit 1; }
+      - name: Compilar Glib con bibliotecas dinamicas
+        run: |
+          set +e
           export PATH="/ucrt64/bin:/usr/bin:$PATH"
-          export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig"
-          export GI_TYPELIB_PATH="/ucrt64/lib/girepository-1.0"
-          export PERL_MM_USE_DEFAULT=1
-          echo '=== PRUEBA EXPERIMENTAL: NO RELEASE, NO PORTABILIDAD, NO GUI VALIDADA ==='
-          perl -e 'print "Perl $^V ($^O) $^X\n"'
-          pkg-config --modversion gtk+-3.0
-          pkg-config --modversion gobject-introspection-1.0 || true
-          echo '=== CPAN disponible ==='
-          perl -MCPAN -e 'print "CPAN $CPAN::VERSION\n"'
-          echo '=== Compilacion secuencial con limites de tiempo ==='
-          for module in Glib Glib::Object::Introspection Gtk3; do
-            echo "=== INICIO CPAN $module ==="
-            if timeout 780 perl -MCPAN -e 'CPAN::Shell->notest("install", $ARGV[0])' "$module"; then
-              echo "CPAN_RESULTADO $module OK"
-            else
-              code=$?
-              echo "CPAN_RESULTADO $module ERROR codigo=$code"
-            fi
-            if perl -M"$module" -e 1; then
-              echo "CARGA_RESULTADO $module OK"
-            else
-              code=$?
-              echo "CARGA_RESULTADO $module ERROR codigo=$code"
-            fi
-          done
-          echo '=== Verificacion final de los tres bindings ==='
-          for module in Glib Glib::Object::Introspection Gtk3; do
-            if perl -M"$module" -e 1; then echo "FINAL $module PRESENTE"; else echo "FINAL $module AUSENTE"; fi
-          done
-          echo '=== FIN: NO se probo ventana grafica ni GCstar ==='
+          cd /tmp/perl-bindings/Glib-1.3294 || exit 1
+          ld="$(sed -n 's/^LDLOADLIBS *= *//p' Makefile | head -1)"
+          fixed="$(printf '%s\n' "$ld" | perl -pe 's{"[^"]*[/\\]lib(glib-2\.0|gobject-2\.0|gthread-2\.0|gio-2\.0|gmodule-2\.0|intl)\.a"}{-l$1}g')"
+          echo "GLIB_LIBS_OVERRIDDEN=$([ "$ld" != "$fixed" ] && echo yes || echo no)"
+          mingw32-make LDLOADLIBS="$fixed" install > ../glib-build.log 2>&1
+          rc=$?
+          echo "GLIB_BUILD_EXIT=$rc"
+          if [ "$rc" -ne 0 ]; then tail -65 ../glib-build.log; exit 1; fi
+          perl -MGlib -e 'print "GLIB_READY $Glib::VERSION\n"' || exit 1
+      - name: Diagnosticar e instalar Cairo desde CPAN
+        run: |
+          set +e
+          export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
+          echo '=== CAIRO: configuracion y bibliotecas ==='
+          perl -V:version -V:cc -V:ld -V:lddlflags
+          pkg-config --modversion cairo
+          pkg-config --libs cairo
+          echo '=== Compilacion CPAN Cairo ==='
+          timeout 900 perl -MCPAN -e 'CPAN::Shell->notest("install","Cairo")' > /tmp/perl-bindings/cairo-cpan.log 2>&1
+          rc=$?
+          echo "CAIRO_CPAN_EXIT=$rc (no es prueba de instalacion)"
+          echo '::group::Errores Cairo y Perl_SvPV_helper'
+          grep -nEi 'Perl_SvPV_helper|error:|undefined reference|fatal error|Error [0-9]+|not found' /tmp/perl-bindings/cairo-cpan.log | tail -75 | cut -c1-900 || true
+          echo '::endgroup::'
+          echo '::group::Ultimas 85 lineas CPAN Cairo'
+          tail -85 /tmp/perl-bindings/cairo-cpan.log | cut -c1-900
+          echo '::endgroup::'
+          if perl -MCairo -e 'print "CAIRO_PERL_LOAD=OK version=$Cairo::VERSION\n"'; then
+            echo 'CAIRO_FINAL=OK'
+          else
+            echo 'CAIRO_FINAL=ERROR'
+            exit 1
+          fi
