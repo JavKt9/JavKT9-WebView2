@@ -806,6 +806,18 @@ jobs:
             $env:PERL5LIB = $oldPerl5lib
             $env:GI_TYPELIB_PATH = $oldGI
           }
+          $lines.Add('=== Diagnostico rutas reales de dependencias ===')
+          foreach ($module in @('Gtk3.pm','Cairo/GObject.pm','Glib/Object/Introspection.pm')) {
+            $found = @(Get-ChildItem "$root\usr" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName.Replace('\','/').EndsWith($module) } | Select-Object -First 8 -ExpandProperty FullName)
+            if ($found.Count) { foreach ($f in $found) { $lines.Add("Modulo ${module}: $f") } }
+            else { $lines.Add("Modulo ${module}: NO ENCONTRADO") }
+          }
+          $typelibs = @(Get-ChildItem "$root\usr" -Recurse -File -Filter '*.typelib' -ErrorAction SilentlyContinue | Select-Object -First 20 -ExpandProperty FullName)
+          $lines.Add("Typelibs encontrados (hasta 20): $($typelibs.Count)")
+          foreach ($f in $typelibs) { $lines.Add("Typelib: $f") }
+          $lines.Add('=== Ubicaciones Perl reportadas por perl -V ===')
+          $perlPaths = @(& "$root\bin\perl.exe" -V:installsitearch -V:installvendorarch -V:installarchlib -V:installvendorlib 2>&1)
+          foreach ($line in $perlPaths) { $lines.Add([string]$line) }
           $lines.Add('Todavia no se ejecuta GCstar ni se prueba interfaz grafica.')
           $lines.Add('Se requiere verificar rutas, dependencias, fuentes y licencias antes de distribuir.')
           $lines | Set-Content $report -Encoding utf8
