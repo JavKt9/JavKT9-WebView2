@@ -33,8 +33,8 @@ jobs:
           perl -V:ld -V:libs -V:lddlflags
           pkg-config --cflags --libs glib-2.0 gobject-2.0 gio-2.0
           echo '=== CPAN Glib para obtener directorio ==='
-          timeout 800 perl -MCPAN -e 'CPAN::Shell->notest("install","Glib")' > /tmp/glib-cpan.log 2>&1
-          cpan_exit=$?
+          cpan_exit=0
+          timeout 800 perl -MCPAN -e 'CPAN::Shell->notest("install","Glib")' > /tmp/glib-cpan.log 2>&1 || cpan_exit=$?
           echo "CPAN_EXIT=$cpan_exit"
           echo '=== Ultimas lineas CPAN ==='
           tail -35 /tmp/glib-cpan.log
@@ -47,8 +47,9 @@ jobs:
           echo "LIBLIST_INPUT=$pclibs"
           perl -MExtUtils::Liblist -e 'my @r=ExtUtils::Liblist->ext($ARGV[0],1); print "EXTRALIBS=[$r[0]]\nLDLOADLIBS=[$r[2]]\n"' -- "$pclibs" 2>&1 || true
           echo '=== Makefile.PL completo ==='
-          perl Makefile.PL > /tmp/mkpl.log 2>&1
-          echo "MAKEFILE_PL_EXIT=$?"
+          mkpl_exit=0
+          perl Makefile.PL > /tmp/mkpl.log 2>&1 || mkpl_exit=$?
+          echo "MAKEFILE_PL_EXIT=$mkpl_exit"
           cat /tmp/mkpl.log
           echo '=== Variables del Makefile ==='
           grep -n -E '^(EXTRALIBS|LDLOADLIBS|BSLOADLIBS|LDDLFLAGS|LDFROM|OTHERLDFLAGS|INC|LD|LDFLAGS|DEFINE) *=' Makefile || true
@@ -57,8 +58,9 @@ jobs:
           echo '=== Dry run ==='
           mingw32-make -n blib/arch/auto/Glib/Glib.dll 2>&1 | tail -45 || true
           echo '=== Recompilacion completa ==='
-          mingw32-make > /tmp/make-full.log 2>&1
-          echo "MAKE_EXIT=$?"
+          make_exit=0
+          mingw32-make > /tmp/make-full.log 2>&1 || make_exit=$?
+          echo "MAKE_EXIT=$make_exit"
           echo '=== Comandos de enlace reales ==='
           grep -n -E 'g\+\+|gcc | -shared|\.dll' /tmp/make-full.log | tail -65 || true
           echo '=== Ultimas lineas make ==='
