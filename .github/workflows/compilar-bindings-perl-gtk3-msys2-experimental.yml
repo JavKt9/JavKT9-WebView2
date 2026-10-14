@@ -148,22 +148,41 @@ jobs:
           test "$ld" != "$fixed"
           mingw32-make LDLOADLIBS="$fixed" install > "$WORK/glib-build.log" 2>&1 || { tail -90 "$WORK/glib-build.log"; exit 1; }
           perl -MGlib -e 'my $l=Glib::MainLoop->new; Glib::Timeout->add(20,sub{$l->quit;0}); $l->run; print "GLIB_FUNCTIONAL=OK version=$Glib::VERSION\n"'
-      - name: 6 Instalar Cairo GObject y diagnosticar errores
+      - name: 6 Compilar Cairo GObject con bibliotecas de importacion
         run: |
-          set +e
+          set -euo pipefail
           export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
-          echo '=== PRUEBA Cairo::GObject con Glib y Cairo instalados ==='
-          perl -MCairo -MGlib -e 'print "CAIRO_AND_GLIB_LOAD=OK\n"'
-          timeout 900 perl -MCPAN -e 'CPAN::Shell->notest("install","Cairo::GObject")' > "$WORK/cairo-gobject.log" 2>&1
+          cd "$WORK"
+          curl -fsSL --retry 2 -o Cairo-GObject-1.005.tar.gz https://cpan.metacpan.org/authors/id/X/XA/XAOC/Cairo-GObject-1.005.tar.gz
+          tar -xzf Cairo-GObject-1.005.tar.gz
+          cd Cairo-GObject-1.005
+          perl Makefile.PL > "$WORK/cg-config.log" 2>&1 || { cat "$WORK/cg-config.log"; exit 1; }
+          echo '=== Makefile LDLOADLIBS original ==='
+          grep '^LDLOADLIBS *=' Makefile || true
+          ld="$(sed -n 's/^LDLOADLIBS *= *//p' Makefile | head -1)"
+          fixed="$(printf '%s\n' "$ld" | perl -pe 's{\x22[^\x22]*lib(cairo-gobject|cairo|glib-2\.0|gobject-2\.0|gthread-2\.0|gio-2\.0|gmodule-2\.0|intl|freetype)\.a\x22}{-l$1}g')"
+          echo "CG_LD_CHANGED=$([ "$ld" != "$fixed" ] && echo yes || echo no)"
+          echo "CG_LD_FIXED=$fixed"
+          test "$ld" != "$fixed"
+          set +e
+          mingw32-make LDLOADLIBS="$fixed" > "$WORK/cg-build.log" 2>&1
           rc=$?
-          echo "CAIRO_GOBJECT_CPAN_EXIT=$rc"
-          echo '::group::Errores de Cairo GObject'
-          grep -nEi 'error:|undefined reference|Perl_SvPV_helper|not found|failed|cannot|Error [0-9]+' "$WORK/cairo-gobject.log" | tail -100 | cut -c1-700 || true
-          echo '::endgroup::'
-          tail -95 "$WORK/cairo-gobject.log" | cut -c1-900
-          if perl -MCairo::GObject -e 'print "CAIRO_GOBJECT_LOAD=OK\n"'; then
-            echo 'CAIRO_GOBJECT_FINAL=OK'
-          else
-            echo 'CAIRO_GOBJECT_FINAL=ERROR'
-            exit 1
-          fi
+          echo "CG_MAKE_EXIT=$rc"
+          grep -nE 'error:|undefined reference|Error [0-9]+' "$WORK/cg-build.log" | tail -70 | cut -c1-750 || true
+          tail -50 "$WORK/cg-build.log" | cut -c1-850
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          mingw32-make LDLOADLIBS="$fixed" install > "$WORK/cg-install.log" 2>&1
+          rc=$?
+          echo "CG_INSTALL_EXIT=$rc"
+          tail -35 "$WORK/cg-install.log"
+          exit "$rc"
+      - name: 7 Verificar carga real Cairo GObject
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          perl -MCairo -MGlib -MCairo::GObject -e 'print "CAIRO_GOBJECT_LOAD=OK version=$Cairo::GObject::VERSION\n"'
+          dll="$(find /ucrt64/lib/perl5 -path '*Cairo*GObject*' -name GObject.dll -print -quit)"
+          echo "CG_DLL=$dll"
+          test -n "$dll"
+          ldd "$dll"
+          echo 'CAIRO_GOBJECT_FINAL=OK'
