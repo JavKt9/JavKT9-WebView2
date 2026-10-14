@@ -1,0 +1,59 @@
+name: Diagnostico enlazado Perl Glib MSYS2 experimental
+on:
+  push:
+    branches: [experimento-gcstar-par-rc1]
+    paths: ['.github/workflows/diagnostico-enlazado-glib-msys2-experimental.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  glib-link:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - name: Instalar Perl y dependencias GLib UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-perl
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-make
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-glib2
+      - name: Diagnosticar enlace y compilar solo Glib
+        shell: msys2 {0}
+        run: |
+          set -u
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          export PERL_MM_USE_DEFAULT=1
+          export PERL_CPANM_OPT=--notest
+          echo '=== DIAGNOSTICO GLIB: NO RELEASE, NO GCSTAR GUI ==='
+          perl -V:cc -V:ld -V:ccflags -V:ldflags -V:libs -V:archname
+          echo '=== GLIB FLAGS ==='
+          pkg-config --cflags --libs glib-2.0 gobject-2.0 gio-2.0
+          echo '=== IMPORT LIBRARIES ==='
+          ls -l /ucrt64/lib/libglib-2.0.dll.a /ucrt64/lib/libgobject-2.0.dll.a /ucrt64/bin/libglib-2.0-0.dll || true
+          echo '=== Prueba minima de enlazado g_free ==='
+          printf '#include <glib.h>\nint main(void){void *p=g_malloc(16);g_free(p);return 0;}\n' > /tmp/glib_link.c
+          if gcc /tmp/glib_link.c -o /tmp/glib_link.exe $(pkg-config --cflags --libs glib-2.0); then
+            echo 'GLIB_C_LINK=OK'
+          else
+            echo 'GLIB_C_LINK=ERROR'
+          fi
+          echo '=== CPAN Glib con log detallado ==='
+          timeout 900 perl -MCPAN -e 'CPAN::Shell->notest("install", "Glib")' > /tmp/glib-cpan.log 2>&1
+          result=$?
+          echo "CPAN_EXIT=$result"
+          echo '=== Lineas relevantes ==='
+          grep -n -E -i 'undefined reference|error:|cannot find|failed|gcc|g_free|collect2|ld.exe|linking|Makefile' /tmp/glib-cpan.log | tail -110 || true
+          echo '=== Ultimas 100 lineas ==='
+          tail -100 /tmp/glib-cpan.log
+          echo '=== Carga real ==='
+          if perl -MGlib -e 'print "Glib cargado\n"'; then
+            echo 'GLIB_PERL_LOAD=OK'
+          else
+            echo 'GLIB_PERL_LOAD=ERROR'
+          fi
+          echo '=== FIN ==='
