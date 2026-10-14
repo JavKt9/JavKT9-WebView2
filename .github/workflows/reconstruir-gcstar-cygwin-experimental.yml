@@ -749,7 +749,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $report = 'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_SIN_PAR.txt'
           $lines = [System.Collections.Generic.List[string]]::new()
-          $lines.Add('EXPERIMENTAL - TERCERA PRUEBA SIN PAR: rutas reales y aislamiento Perl. NO PUBLICAR.')
+          $lines.Add('EXPERIMENTAL - CUARTA PRUEBA SIN PAR: rutas Perl completas y origen de modulos. NO PUBLICAR.')
           $root = 'C:\cygwin64'
           $stage = Join-Path $env:RUNNER_TEMP 'gcstar-runtime-sin-par'
           $bin = Join-Path $stage 'bin'
@@ -757,7 +757,7 @@ jobs:
           Copy-Item "$root\bin\*.dll" $bin -Force
           Copy-Item "$root\bin\perl.exe" $bin -Force
           $lines.Add("DLL copiadas: $(@(Get-ChildItem $bin -Filter '*.dll').Count)")
-          foreach ($relative in @('lib\perl5','share\perl5','lib\girepository-1.0','share\gir-1.0')) {
+          foreach ($relative in @('lib\perl5','share\perl5','usr\share\perl5','lib\girepository-1.0','share\gir-1.0')) {
             $source = Join-Path $root $relative
             $target = Join-Path $stage $relative
             if (Test-Path $source) {
@@ -768,7 +768,7 @@ jobs:
           }
           $cygpath = Join-Path $root 'bin\cygpath.exe'
           $libPaths = @()
-          foreach ($relative in @('lib\perl5','share\perl5')) {
+          foreach ($relative in @('usr\share\perl5\vendor_perl\5.44','usr\share\perl5\5.44','lib\perl5\vendor_perl\5.44\x86_64-cygwin-threads','lib\perl5\vendor_perl\5.44','lib\perl5\5.44\x86_64-cygwin-threads','lib\perl5\5.44')) {
             $target = Join-Path $stage $relative
             if (Test-Path $target) {
               $unixPath = (& $cygpath -u $target).Trim()
@@ -778,6 +778,7 @@ jobs:
           $oldPath = $env:PATH
           $oldPerl5lib = $env:PERL5LIB
           $oldGI = $env:GI_TYPELIB_PATH
+          $oldStageUnix = $env:STAGE_UNIX
           try {
             $env:PATH = "$bin;$env:SystemRoot\System32;$env:SystemRoot"
             $env:PERL5LIB = $libPaths -join ':'
@@ -785,6 +786,7 @@ jobs:
             if (Test-Path $giDir) { $env:GI_TYPELIB_PATH = (& $cygpath -u $giDir).Trim() }
             $lines.Add("PERL5LIB: $env:PERL5LIB")
             $lines.Add("GI_TYPELIB_PATH: $env:GI_TYPELIB_PATH")
+            $env:STAGE_UNIX = (& $cygpath -u $stage).Trim()
             $probe = Join-Path $stage 'gtk3-aislado.pl'
             $probeSource = @(
               'BEGIN {'
@@ -792,6 +794,10 @@ jobs:
               '  die "PERL5LIB vacio" unless @INC;'
               '}'
               'require Gtk3;'
+              'for my $module (qw(Gtk3.pm Cairo/GObject.pm Glib/Object/Introspection.pm)) {'
+              '  print "$module => ", ($INC{$module} // "NO_CARGADO"), "\\n";'
+              '  die "Modulo fuera de staging: $module" if exists $INC{$module} && index($INC{$module}, $ENV{STAGE_UNIX}) != 0;'
+              '}'
               'print "GTK3_IMPORT_OK\\n";'
             )
             $probeSource | Set-Content $probe -Encoding ascii
@@ -816,6 +822,7 @@ jobs:
             $env:PATH = $oldPath
             $env:PERL5LIB = $oldPerl5lib
             $env:GI_TYPELIB_PATH = $oldGI
+            $env:STAGE_UNIX = $oldStageUnix
           }
           $lines.Add('=== Inventario Cygwin de paquetes Perl y typelibs ===')
           $cygcheck = Join-Path $root 'bin\cygcheck.exe'
