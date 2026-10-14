@@ -786,14 +786,15 @@ jobs:
             $lines.Add("PERL5LIB: $env:PERL5LIB")
             $lines.Add("GI_TYPELIB_PATH: $env:GI_TYPELIB_PATH")
             $probe = Join-Path $stage 'gtk3-aislado.pl'
-            @'
-BEGIN {
-  @INC = split(/:/, $ENV{PERL5LIB} // '');
-  die "PERL5LIB vacio" unless @INC;
-}
-require Gtk3;
-print "GTK3_IMPORT_OK\n";
-'@ | Set-Content $probe -Encoding ascii
+            $probeSource = @(
+              'BEGIN {'
+              '  @INC = split(/:/, $ENV{PERL5LIB} // "");'
+              '  die "PERL5LIB vacio" unless @INC;'
+              '}'
+              'require Gtk3;'
+              'print "GTK3_IMPORT_OK\\n";'
+            )
+            $probeSource | Set-Content $probe -Encoding ascii
             $lines.Add('La prueba GTK3 restringe @INC a rutas de staging; no demuestra aislamiento de DLL ni GUI.')
             $perl = Join-Path $bin 'perl.exe'
             foreach ($test in @(
