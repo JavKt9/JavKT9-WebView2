@@ -17,7 +17,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $setup = Join-Path $env:RUNNER_TEMP 'setup-x86_64.exe'
           Invoke-WebRequest 'https://cygwin.com/setup-x86_64.exe' -OutFile $setup
-          $args = @('-q','-n','-N','-R','C:\cygwin64','-l',(Join-Path $env:RUNNER_TEMP 'cygwin-cache'),'-s','https://mirrors.kernel.org/sourceware/cygwin/','-P','perl,perl-Gtk3,binutils,cygcheck')
+          $args = @('-q','-n','-N','-R','C:\cygwin64','-l',(Join-Path $env:RUNNER_TEMP 'cygwin-cache'),'-s','https://mirrors.kernel.org/sourceware/cygwin/','-P','perl,perl-Gtk3,gtk3,girepository-Gtk3.0,binutils')
           $p = Start-Process -FilePath $setup -ArgumentList $args -Wait -PassThru -NoNewWindow
           if ($p.ExitCode -ne 0) { throw "Cygwin setup fallo: $($p.ExitCode)" }
       - name: Inspeccionar DLL y backend sin servidor X
@@ -57,10 +57,4 @@ jobs:
           }
           $lines | Set-Content $out -Encoding utf8
           Get-Content $out
-      - name: Guardar informe descargable
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gtk3-backend-diagnostico
-          path: ${{ runner.temp }}/GTK3_BACKEND_DIAGNOSTICO.txt
-          if-no-files-found: warn
+          Write-Host 'Informe disponible en el log de este paso; no se suben artefactos.'
