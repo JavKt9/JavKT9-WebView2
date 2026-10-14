@@ -104,7 +104,7 @@ jobs:
               echo "STATIC_IMP_SYMBOLS=$(nm -A /ucrt64/lib/libcairo.a 2>/dev/null | grep -c '__imp_cairo_surface_set_mime_data' || true)"
               echo "IMPORT_IMP_SYMBOLS=$(nm -A /ucrt64/lib/libcairo.dll.a 2>/dev/null | grep -c '__imp_cairo_surface_set_mime_data' || true)"
               ld="$(sed -n 's/^LDLOADLIBS *= *//p' Makefile | head -1)"
-              fixed="$(printf '%s\n' "$ld" | perl -pe 's{"[^"]*[/\\]lib(cairo|cairo-gobject|pixman-1|png16|freetype|fontconfig|glib-2\\.0|gobject-2\\.0|intl)\\.a"}{-l$1}g')"
+              fixed="$(printf '%s\n' "$ld" | perl -pe 's{\x22[^\x22]*libcairo\.a\x22}{-lcairo}g; s{\x22[^\x22]*libfreetype\.a\x22}{-lfreetype}g')"
               echo "LDLOADLIBS_CHANGED=$([ "$ld" != "$fixed" ] && echo yes || echo no)"
               echo "LDLOADLIBS_FIXED=$fixed"
               if [ "$ld" != "$fixed" ]; then
