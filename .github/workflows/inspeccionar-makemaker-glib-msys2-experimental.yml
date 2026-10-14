@@ -1,0 +1,66 @@
+name: Inspeccionar MakeMaker Glib MSYS2 experimental
+on:
+  push:
+    branches: [experimento-gcstar-par-rc1]
+    paths: ['.github/workflows/inspeccionar-makemaker-glib-msys2-experimental.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-glib:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - name: Preparar MSYS2 Perl GLib
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-perl
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-make
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-glib2
+      - name: Capturar Liblist Makefile y comando completo de enlace
+        shell: msys2 {0}
+        run: |
+          set -u
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          export PERL_MM_USE_DEFAULT=1
+          echo '=== SOLO DIAGNOSTICO: SIN PARCHE, SIN RELEASE ==='
+          echo '=== Perl y bibliotecas ==='
+          perl -V:ld -V:libs -V:lddlflags
+          pkg-config --cflags --libs glib-2.0 gobject-2.0 gio-2.0
+          echo '=== CPAN Glib para obtener directorio ==='
+          timeout 800 perl -MCPAN -e 'CPAN::Shell->notest("install","Glib")' > /tmp/glib-cpan.log 2>&1
+          echo "CPAN_EXIT=$?"
+          echo '=== Ultimas lineas CPAN ==='
+          tail -35 /tmp/glib-cpan.log
+          d=$(find "$HOME/.cpan/build" -maxdepth 1 -type d -name 'Glib-*' 2>/dev/null | head -1)
+          echo "BUILD_DIR=$d"
+          if [ -z "$d" ]; then echo 'ERROR: no existe directorio Glib'; exit 1; fi
+          cd "$d"
+          echo '=== ExtUtils Liblist ==='
+          pclibs="-L/ucrt64/lib $(pkg-config --libs glib-2.0 gobject-2.0 gio-2.0)"
+          echo "LIBLIST_INPUT=$pclibs"
+          perl -MExtUtils::Liblist -e 'my @r=ExtUtils::Liblist->ext($ARGV[0],1); print "EXTRALIBS=[$r[0]]\nLDLOADLIBS=[$r[2]]\n"' -- "$pclibs" 2>&1 || true
+          echo '=== Makefile.PL completo ==='
+          perl Makefile.PL > /tmp/mkpl.log 2>&1
+          echo "MAKEFILE_PL_EXIT=$?"
+          cat /tmp/mkpl.log
+          echo '=== Variables del Makefile ==='
+          grep -n -E '^(EXTRALIBS|LDLOADLIBS|BSLOADLIBS|LDDLFLAGS|LDFROM|OTHERLDFLAGS|INC|LD|LDFLAGS|DEFINE) *=' Makefile || true
+          echo '=== Regla de enlace ==='
+          sed -n '590,610p' Makefile
+          echo '=== Dry run ==='
+          mingw32-make -n blib/arch/auto/Glib/Glib.dll 2>&1 | tail -45 || true
+          echo '=== Recompilacion completa ==='
+          mingw32-make > /tmp/make-full.log 2>&1
+          echo "MAKE_EXIT=$?"
+          echo '=== Comandos de enlace reales ==='
+          grep -n -E 'g\+\+|gcc | -shared|\.dll' /tmp/make-full.log | tail -65 || true
+          echo '=== Ultimas lineas make ==='
+          tail -65 /tmp/make-full.log
+          echo '=== Carga Perl ==='
+          if perl -MGlib -e 'print "GLIB_OK\n"'; then echo 'GLIB_LOAD=OK'; else echo 'GLIB_LOAD=ERROR'; fi
