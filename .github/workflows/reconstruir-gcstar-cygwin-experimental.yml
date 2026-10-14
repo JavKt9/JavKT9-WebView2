@@ -806,6 +806,22 @@ jobs:
             $env:PERL5LIB = $oldPerl5lib
             $env:GI_TYPELIB_PATH = $oldGI
           }
+          $lines.Add('=== Inventario Cygwin de paquetes Perl y typelibs ===')
+          $cygcheck = Join-Path $root 'bin\cygcheck.exe'
+          if (Test-Path $cygcheck) {
+            foreach ($argsList in @(
+              @('-c','perl-Cairo-GObject','perl-Glib-Object-Introspection'),
+              @('-l','perl-Cairo-GObject'),
+              @('-l','perl-Glib-Object-Introspection'),
+              @('-l','girepository-Gtk3.0')
+            )) {
+              $lines.Add('Comando: cygcheck ' + ($argsList -join ' '))
+              $output = @(& $cygcheck @argsList 2>&1)
+              $lines.Add('Codigo: ' + $LASTEXITCODE)
+              foreach ($line in $output) { $lines.Add([string]$line) }
+            }
+          } else { $lines.Add('cygcheck.exe no encontrado') }
+          $lines.Add('Inventario informativo; no demuestra aislamiento ni carga GUI.')
           $lines.Add('=== Diagnostico rutas reales de dependencias ===')
           foreach ($module in @('Gtk3.pm','Cairo/GObject.pm','Glib/Object/Introspection.pm')) {
             $found = @(Get-ChildItem "$root\usr" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName.Replace('\','/').EndsWith($module) } | Select-Object -First 8 -ExpandProperty FullName)
