@@ -1,0 +1,41 @@
+name: Diagnostico MSYS2 GTK3 nativo experimental
+on:
+  push:
+    branches: [experimento-gcstar-par-rc1]
+    paths: ['.github/workflows/diagnostico-msys2-gtk3-experimental.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  msys2-gtk3:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - name: Preparar MSYS2 UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gtk3
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-binutils
+      - name: Diagnosticar GTK3 nativo y disponibilidad Perl
+        shell: msys2 {0}
+        run: |
+          set -u
+          echo '=== DIAGNOSTICO MSYS2 UCRT64, SIN PAR NI RELEASES ==='
+          echo "MSYSTEM=${MSYSTEM:-no-definido}"
+          echo '=== GTK3 version y backend ==='
+          pkg-config --modversion gtk+-3.0 || true
+          ls -l /ucrt64/bin/libgdk-3-0.dll /ucrt64/bin/libgtk-3-0.dll || true
+          echo '=== Dependencias GDK Win32 ==='
+          objdump -p /ucrt64/bin/libgdk-3-0.dll 2>&1 | grep 'DLL Name:' || true
+          echo '=== Disponibilidad de Perl UCRT64 ==='
+          pacman -Ss '^mingw-w64-ucrt-x86_64-perl($|-)' | head -65 || true
+          echo '=== Disponibilidad de bindings Perl Gtk3 / GI ==='
+          pacman -Ss 'perl-(gtk3|glib-object-introspection|cairo-gobject)' | head -65 || true
+          echo '=== Perl ejecutable y origen (solo diagnostico) ==='
+          command -v perl || true
+          perl -e 'print "Perl version: $^V; platform: $^O; executable: $^X\n"' || true
+          echo '=== FIN: GTK nativo no implica bindings Perl compatibles ni GCstar GUI funcional ==='
