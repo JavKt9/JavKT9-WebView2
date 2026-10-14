@@ -53,8 +53,8 @@ jobs:
           open my $in, '<:raw', $file or die $!;
           my $src = <$in>;
           close $in;
-          my $a = ($src =~ s/(const\s+unsigned\s+char\s*\*\s*mime_data\s*;\s*)unsigned\s+long\s+length\s*;/1STRLEN length;/g);
-          my $b = ($src =~ s/(cairo_surface_set_mime_data\s*\([^;]*?,\s*mime_data\s*,\s*)length(\s*,\s*data_destroy)/1(unsigned long) length2/g);
+          my $a = ($src =~ s/(const\s+unsigned\s+char\s*\*\s*mime_data\s*;\s*)unsigned\s+long\s+length\s*;/$1STRLEN length;/g);
+          my $b = ($src =~ s/(cairo_surface_set_mime_data\s*\([^;]*?,\s*mime_data\s*,\s*)length(\s*,\s*data_destroy)/$1(unsigned long) length$2/g);
           print "PATCH_COUNTS declaration=$a call=$b\n";
           die "PATCH_APPLY=ERROR\n" unless $a == 1 && $b == 1;
           open my $out, '>:raw', $file or die $!;
