@@ -1,0 +1,52 @@
+name: Diagnostico Perl GTK3 MSYS2 UCRT64 experimental
+on:
+  push:
+    branches: [experimento-gcstar-par-rc1]
+    paths: ['.github/workflows/diagnostico-msys2-perl-gtk3-experimental.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  perl-gtk3:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - name: Preparar Perl y GTK3 UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-perl
+            mingw-w64-ucrt-x86_64-gtk3
+            mingw-w64-ucrt-x86_64-gobject-introspection
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-make
+      - name: Probar Perl y requisitos para bindings GTK3
+        shell: msys2 {0}
+        run: |
+          set -u
+          echo '=== DIAGNOSTICO EXPERIMENTAL, SIN CAMBIOS NI RELEASES ==='
+          echo '=== Perl UCRT64 ==='
+          command -v perl
+          perl -e 'print "version=$^V platform=$^O exe=$^X\n"'
+          echo '=== GTK3 y GI ==='
+          pkg-config --modversion gtk+-3.0
+          pkg-config --modversion gobject-introspection-1.0 || true
+          pkg-config --modversion girepository-2.0 || true
+          echo '=== Typelib GTK3 ==='
+          find /ucrt64/lib/girepository-1.0 -maxdepth 1 -iname 'Gtk-3.0.typelib' -print
+          echo '=== Modulos Perl presentes ==='
+          for mod in ExtUtils::MakeMaker Glib Glib::Object::Introspection Gtk3 Cairo Cairo::GObject Pango; do
+            if perl -M"$mod" -e 1 >/dev/null 2>&1; then
+              echo "$mod: PRESENTE"
+            else
+              echo "$mod: AUSENTE"
+            fi
+          done
+          echo '=== Paquetes Perl GTK3 disponibles ==='
+          pacman -Ss '^mingw-w64-ucrt-x86_64-perl-(glib|gtk3|cairo|pango)' || true
+          echo '=== Compiladores ==='
+          gcc --version | head -1
+          echo '=== FIN: no se ha compilado ningun binding ni abierto GUI ==='
