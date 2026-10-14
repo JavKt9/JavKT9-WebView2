@@ -24,6 +24,7 @@ jobs:
             mingw-w64-ucrt-x86_64-perl
             mingw-w64-ucrt-x86_64-cairo
             mingw-w64-ucrt-x86_64-glib2
+            mingw-w64-ucrt-x86_64-gobject-introspection
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-make
@@ -186,3 +187,22 @@ jobs:
           test -n "$dll"
           ldd "$dll"
           echo 'CAIRO_GOBJECT_FINAL=OK'
+      - name: 8 Compilar Glib Object Introspection desde CPAN
+        run: |
+          set +e
+          export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
+          pkg-config --modversion gobject-introspection-1.0
+          perl -MCairo -MGlib -MCairo::GObject -e 'print "BASE_PERL_BINDINGS=OK\n"'
+          timeout 900 perl -MCPAN -e 'CPAN::Shell->notest("install","Glib::Object::Introspection")' > "$WORK/gi-cpan.log" 2>&1
+          rc=$?
+          echo "GI_CPAN_EXIT=$rc"
+          echo '::group::Errores introspeccion'
+          grep -nEi 'error:|undefined reference|cannot|failed|not found|Perl_SvPV_helper|Error [0-9]+' "$WORK/gi-cpan.log" | tail -100 | cut -c1-850 || true
+          echo '::endgroup::'
+          tail -100 "$WORK/gi-cpan.log" | cut -c1-950
+          if perl -MGlib::Object::Introspection -e 'print "GI_PERL_LOAD=OK version=$Glib::Object::Introspection::VERSION\n"'; then
+            echo 'GI_FINAL=OK'
+          else
+            echo 'GI_FINAL=ERROR'
+            exit 1
+          fi
