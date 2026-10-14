@@ -1,0 +1,66 @@
+name: Diagnostico GTK3 backend Windows experimental
+on:
+  push:
+    branches: [experimento-gcstar-par-rc1]
+    paths: ['.github/workflows/diagnostico-gtk3-backend-experimental.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnostico-gtk3:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - name: Instalar GTK3 Cygwin para diagnostico
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Join-Path $env:RUNNER_TEMP 'setup-x86_64.exe'
+          Invoke-WebRequest 'https://cygwin.com/setup-x86_64.exe' -OutFile $setup
+          $args = @('-q','-n','-N','-R','C:\cygwin64','-l',(Join-Path $env:RUNNER_TEMP 'cygwin-cache'),'-s','https://mirrors.kernel.org/sourceware/cygwin/','-P','perl,perl-Gtk3,binutils,cygcheck')
+          $p = Start-Process -FilePath $setup -ArgumentList $args -Wait -PassThru -NoNewWindow
+          if ($p.ExitCode -ne 0) { throw "Cygwin setup fallo: $($p.ExitCode)" }
+      - name: Inspeccionar DLL y backend sin servidor X
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'GTK3_BACKEND_DIAGNOSTICO.txt'
+          $lines = [System.Collections.Generic.List[string]]::new()
+          $lines.Add('DIAGNOSTICO EXPERIMENTAL. NO VALIDA GUI NI PORTABILIDAD.')
+          $bin = 'C:\cygwin64\bin'
+          $gdk = Join-Path $bin 'cyggdk-3-0.dll'
+          $lines.Add("cyggdk-3-0.dll existe: $(Test-Path $gdk)")
+          if (Test-Path $gdk) {
+            $imports = & (Join-Path $bin 'objdump.exe') -p $gdk 2>&1
+            $lines.Add("objdump codigo: $LASTEXITCODE")
+            foreach ($line in $imports) {
+              if ([string]$line -match 'DLL Name:') { $lines.Add([string]$line) }
+            }
+            $lines.Add("Importa X11: $([bool]($imports -match 'DLL Name:\s*cygX11'))")
+            $check = & (Join-Path $bin 'cygcheck.exe') $gdk 2>&1
+            $lines.Add('cygcheck dependencias:')
+            foreach ($line in $check) { $lines.Add([string]$line) }
+          }
+          $lines.Add('Prueba Gtk3 init_check sin DISPLAY ni servidor X: NO equivale a apertura de ventana.')
+          $oldDisplay = $env:DISPLAY
+          $oldPath = $env:PATH
+          try {
+            Remove-Item Env:DISPLAY -ErrorAction SilentlyContinue
+            $env:PATH = "$bin;$env:SystemRoot\System32;$env:SystemRoot"
+            $code = 'use Gtk3; my $ok = Gtk3->init_check; print "GTK_INIT_CHECK=", ($ok ? "OK" : "SIN_DISPLAY"), "\n";'
+            $result = & (Join-Path $bin 'perl.exe') -e $code 2>&1
+            $lines.Add("Perl exit code: $LASTEXITCODE")
+            foreach ($line in $result) { $lines.Add([string]$line) }
+          } finally {
+            $env:DISPLAY = $oldDisplay
+            $env:PATH = $oldPath
+          }
+          $lines | Set-Content $out -Encoding utf8
+          Get-Content $out
+      - name: Guardar informe descargable
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtk3-backend-diagnostico
+          path: ${{ runner.temp }}/GTK3_BACKEND_DIAGNOSTICO.txt
+          if-no-files-found: warn
