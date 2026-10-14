@@ -749,7 +749,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $report = 'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_SIN_PAR.txt'
           $lines = [System.Collections.Generic.List[string]]::new()
-          $lines.Add('EXPERIMENTAL - QUINTA PRUEBA SIN PAR: inventario de DLL nativas y origen de modulos. NO PUBLICAR.')
+          $lines.Add('EXPERIMENTAL - SEXTA PRUEBA SIN PAR: carga en compilacion y trazas Cygwin. NO PUBLICAR.')
           $root = 'C:\cygwin64'
           $stage = Join-Path $env:RUNNER_TEMP 'gcstar-runtime-sin-par'
           $bin = Join-Path $stage 'bin'
@@ -793,7 +793,7 @@ jobs:
               '  @INC = split(/:/, $ENV{PERL5LIB} // "");'
               '  die "PERL5LIB vacio" unless @INC;'
               '}'
-              'require Gtk3;'
+              'use Gtk3 ();'
               'for my $module (qw(Gtk3.pm Cairo/GObject.pm Glib/Object/Introspection.pm)) {'
               '  print "$module => ", ($INC{$module} // "NO_CARGADO"), "\\n";'
               '  die "Modulo fuera de staging: $module" if exists $INC{$module} && index($INC{$module}, $ENV{STAGE_UNIX}) != 0;'
@@ -815,6 +815,14 @@ jobs:
               }
             }
             $lines.Add('Inventario estatico: no prueba origen real de DLL cargadas.')
+            $lines.Add('=== Rastreo de carga de DLL con cygcheck ===')
+            $cygcheckStage = Join-Path $bin 'cygcheck.exe'
+            $cygcheckOriginal = Join-Path $root 'bin\cygcheck.exe'
+            if (Test-Path $cygcheckOriginal) {
+              $trace = @(& $cygcheckOriginal $perl 2>&1)
+              foreach ($item in $trace) { $lines.Add([string]$item) }
+              $lines.Add('El rastreo de cygcheck sobre perl.exe es estatico y no cubre todas las cargas dinamicas.')
+            }
             $perl = Join-Path $bin 'perl.exe'
             foreach ($test in @(
               @{ Name='perl-version'; Args=@('-v') },
