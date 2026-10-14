@@ -6,10 +6,12 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  WORK: /tmp/cairo-work
 jobs:
   perl-bindings:
     runs-on: windows-2022
-    timeout-minutes: 55
+    timeout-minutes: 50
     defaults:
       run:
         shell: msys2 {0}
@@ -20,62 +22,82 @@ jobs:
           update: false
           install: >-
             mingw-w64-ucrt-x86_64-perl
-            mingw-w64-ucrt-x86_64-gtk3
-            mingw-w64-ucrt-x86_64-gobject-introspection
+            mingw-w64-ucrt-x86_64-cairo
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-make
-            mingw-w64-ucrt-x86_64-cairo
-            mingw-w64-ucrt-x86_64-pango
-            mingw-w64-ucrt-x86_64-glib2
             curl
             tar
-      - name: Preparar prerequisitos y Glib fuente
+            diffutils
+      - name: 1 Descargar Cairo 1.109 y verificar integridad
         run: |
           set -euo pipefail
-          export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
-          mkdir -p /tmp/perl-bindings
-          perl -MCPAN -e 'CPAN::Shell->notest("install","ExtUtils::Depends","ExtUtils::PkgConfig")' > /tmp/perl-bindings/prereq.log 2>&1 || true
-          perl -MExtUtils::Depends -MExtUtils::PkgConfig -e 'print "PREREQ_OK\n"'
-          cd /tmp/perl-bindings
-          curl -fsSL --retry 2 -o Glib-1.3294.tar.gz https://cpan.metacpan.org/authors/id/X/XA/XAOC/Glib-1.3294.tar.gz
-          tar -xzf Glib-1.3294.tar.gz
-          cd Glib-1.3294
-          perl Makefile.PL > ../glib-config.log 2>&1 || { tail -60 ../glib-config.log; exit 1; }
-      - name: Compilar Glib con bibliotecas dinamicas
-        run: |
-          set +e
           export PATH="/ucrt64/bin:/usr/bin:$PATH"
-          cd /tmp/perl-bindings/Glib-1.3294 || exit 1
-          ld="$(sed -n 's/^LDLOADLIBS *= *//p' Makefile | head -1)"
-          fixed="$(printf '%s\n' "$ld" | perl -pe 's{"[^"]*[/\\]lib(glib-2\.0|gobject-2\.0|gthread-2\.0|gio-2\.0|gmodule-2\.0|intl)\.a"}{-l$1}g')"
-          echo "GLIB_LIBS_OVERRIDDEN=$([ "$ld" != "$fixed" ] && echo yes || echo no)"
-          mingw32-make LDLOADLIBS="$fixed" install > ../glib-build.log 2>&1
-          rc=$?
-          echo "GLIB_BUILD_EXIT=$rc"
-          if [ "$rc" -ne 0 ]; then tail -65 ../glib-build.log; exit 1; fi
-          perl -MGlib -e 'print "GLIB_READY $Glib::VERSION\n"' || exit 1
-      - name: Diagnosticar e instalar Cairo desde CPAN
+          mkdir -p "$WORK"
+          cd "$WORK"
+          curl -fsSL --retry 2 -o Cairo-1.109.tar.gz https://cpan.metacpan.org/authors/id/X/XA/XAOC/Cairo-1.109.tar.gz
+          echo '8219736e401c2311da5f515775de43fd87e6384b504da36a192f2b217643077f  Cairo-1.109.tar.gz' | sha256sum -c -
+          tar -xzf Cairo-1.109.tar.gz
+          grep -n -A14 -B12 'cairo_surface_set_mime_data' Cairo-1.109/CairoSurface.xs | head -75
+      - name: 2 Aplicar parche minimo STRLEN verificado
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          cd "$WORK/Cairo-1.109"
+          cp CairoSurface.xs CairoSurface.xs.orig
+          cat > "$WORK/patch-cairo.pl" <<'PERL'
+          use strict;
+          use warnings;
+          local $/;
+          my $file = shift;
+          open my $in, '<:raw', $file or die $!;
+          my $src = <$in>;
+          close $in;
+          my $a = ($src =~ s/(const\s+unsigned\s+char\s*\*\s*mime_data\s*;\s*)unsigned\s+long\s+length\s*;/1STRLEN length;/g);
+          my $b = ($src =~ s/(cairo_surface_set_mime_data\s*\([^;]*?,\s*mime_data\s*,\s*)length(\s*,\s*data_destroy)/1(unsigned long) length2/g);
+          print "PATCH_COUNTS declaration=$a call=$b\n";
+          die "PATCH_APPLY=ERROR\n" unless $a == 1 && $b == 1;
+          open my $out, '>:raw', $file or die $!;
+          print {$out} $src;
+          close $out;
+          print "PATCH_APPLY=OK\n";
+          PERL
+          perl "$WORK/patch-cairo.pl" CairoSurface.xs
+          diff -u CairoSurface.xs.orig CairoSurface.xs > "$WORK/cairo.diff" || true
+          cat "$WORK/cairo.diff"
+          [ "$(grep -c '^-[^-]' "$WORK/cairo.diff")" -eq 2 ]
+          [ "$(grep -c '^+[^+]' "$WORK/cairo.diff")" -eq 2 ]
+      - name: 3 Configurar y compilar Cairo
         run: |
           set +e
           export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
-          echo '=== CAIRO: configuracion y bibliotecas ==='
-          perl -V:version -V:cc -V:ld -V:lddlflags
-          pkg-config --modversion cairo
-          pkg-config --libs cairo
-          echo '=== Compilacion CPAN Cairo ==='
-          timeout 900 perl -MCPAN -e 'CPAN::Shell->notest("install","Cairo")' > /tmp/perl-bindings/cairo-cpan.log 2>&1
+          cd "$WORK/Cairo-1.109" || exit 1
+          perl Makefile.PL > "$WORK/config.log" 2>&1
           rc=$?
-          echo "CAIRO_CPAN_EXIT=$rc (no es prueba de instalacion)"
-          echo '::group::Errores Cairo y Perl_SvPV_helper'
-          grep -nEi 'Perl_SvPV_helper|error:|undefined reference|fatal error|Error [0-9]+|not found' /tmp/perl-bindings/cairo-cpan.log | tail -75 | cut -c1-900 || true
+          echo "CONFIG_EXIT=$rc"
+          tail -55 "$WORK/config.log"
+          if [ "$rc" -ne 0 ]; then exit 1; fi
+          mingw32-make -k > "$WORK/build.log" 2>&1
+          rc=$?
+          echo "MAKE_EXIT=$rc"
+          echo "SVPV_HELPER_ERRORS=$(grep -c 'Perl_SvPV_helper' "$WORK/build.log" || true)"
+          echo '::group::Errores de compilacion'
+          grep -nE 'error:|undefined reference|Error [0-9]+' "$WORK/build.log" | head -65 | cut -c1-600 || true
           echo '::endgroup::'
-          echo '::group::Ultimas 85 lineas CPAN Cairo'
-          tail -85 /tmp/perl-bindings/cairo-cpan.log | cut -c1-900
-          echo '::endgroup::'
-          if perl -MCairo -e 'print "CAIRO_PERL_LOAD=OK version=$Cairo::VERSION\n"'; then
-            echo 'CAIRO_FINAL=OK'
-          else
-            echo 'CAIRO_FINAL=ERROR'
-            exit 1
-          fi
+          tail -45 "$WORK/build.log" | cut -c1-900
+          if [ "$rc" -ne 0 ]; then exit 1; fi
+          mingw32-make install > "$WORK/install.log" 2>&1
+          rc=$?
+          echo "INSTALL_EXIT=$rc"
+          tail -30 "$WORK/install.log"
+          exit "$rc"
+      - name: 4 Verificar carga y operacion real de Cairo
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          perl -MCairo -e 'print "CAIRO_PERL_LOAD=OK version=$Cairo::VERSION\n"'
+          perl -MCairo -e 'my $s=Cairo::ImageSurface->create("argb32",16,16); my $c=Cairo::Context->create($s); $c->set_source_rgb(1,0,0); $c->paint; $s->flush; my $p=unpack("V",substr($s->get_data,0,4)); die sprintf("PIXEL_ERROR=%08X\n",$p) unless $p == 0xFFFF0000; print "CAIRO_FUNCTIONAL=OK\n";'
+          perl -MCairo -e 'my $s=Cairo::ImageSurface->create("argb32",16,16); my $v="mime-\0-data"; $s->set_mime_data("image/jpeg",$v); my $r=$s->get_mime_data("image/jpeg"); die "MIME_MISMATCH\n" unless defined $r && $r eq $v; print "CAIRO_SET_MIME_DATA=OK\n";'
+          dll="$(find /ucrt64/lib/perl5 -name Cairo.dll -print -quit)"
+          test -n "$dll"
+          ldd "$dll"
