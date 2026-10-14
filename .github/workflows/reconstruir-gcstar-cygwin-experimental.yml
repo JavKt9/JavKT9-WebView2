@@ -749,7 +749,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $report = 'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_SIN_PAR.txt'
           $lines = [System.Collections.Generic.List[string]]::new()
-          $lines.Add('EXPERIMENTAL - SEGUNDA PRUEBA SIN PAR: modulos Perl y typelibs. NO PUBLICAR.')
+          $lines.Add('EXPERIMENTAL - TERCERA PRUEBA SIN PAR: rutas reales y aislamiento Perl. NO PUBLICAR.')
           $root = 'C:\cygwin64'
           $stage = Join-Path $env:RUNNER_TEMP 'gcstar-runtime-sin-par'
           $bin = Join-Path $stage 'bin'
@@ -757,7 +757,7 @@ jobs:
           Copy-Item "$root\bin\*.dll" $bin -Force
           Copy-Item "$root\bin\perl.exe" $bin -Force
           $lines.Add("DLL copiadas: $(@(Get-ChildItem $bin -Filter '*.dll').Count)")
-          foreach ($relative in @('usr\lib\perl5','usr\share\perl5','usr\lib\girepository-1.0','usr\share\gir-1.0')) {
+          foreach ($relative in @('lib\perl5','share\perl5','lib\girepository-1.0','share\gir-1.0')) {
             $source = Join-Path $root $relative
             $target = Join-Path $stage $relative
             if (Test-Path $source) {
@@ -768,7 +768,7 @@ jobs:
           }
           $cygpath = Join-Path $root 'bin\cygpath.exe'
           $libPaths = @()
-          foreach ($relative in @('usr\lib\perl5','usr\share\perl5')) {
+          foreach ($relative in @('lib\perl5','share\perl5')) {
             $target = Join-Path $stage $relative
             if (Test-Path $target) {
               $unixPath = (& $cygpath -u $target).Trim()
@@ -781,14 +781,24 @@ jobs:
           try {
             $env:PATH = "$bin;$env:SystemRoot\System32;$env:SystemRoot"
             $env:PERL5LIB = $libPaths -join ':'
-            $giDir = Join-Path $stage 'usr\lib\girepository-1.0'
+            $giDir = Join-Path $stage 'lib\girepository-1.0'
             if (Test-Path $giDir) { $env:GI_TYPELIB_PATH = (& $cygpath -u $giDir).Trim() }
             $lines.Add("PERL5LIB: $env:PERL5LIB")
             $lines.Add("GI_TYPELIB_PATH: $env:GI_TYPELIB_PATH")
+            $probe = Join-Path $stage 'gtk3-aislado.pl'
+            @'
+BEGIN {
+  @INC = split(/:/, $ENV{PERL5LIB} // '');
+  die "PERL5LIB vacio" unless @INC;
+}
+require Gtk3;
+print "GTK3_IMPORT_OK\n";
+'@ | Set-Content $probe -Encoding ascii
+            $lines.Add('La prueba GTK3 restringe @INC a rutas de staging; no demuestra aislamiento de DLL ni GUI.')
             $perl = Join-Path $bin 'perl.exe'
             foreach ($test in @(
               @{ Name='perl-version'; Args=@('-v') },
-              @{ Name='gtk3-import'; Args=@('-MGtk3','-e','1') }
+              @{ Name='gtk3-import'; Args=@($probe) }
             )) {
               $lines.Add("=== $($test.Name) ===")
               $stdout = Join-Path $stage "$($test.Name).out.txt"
@@ -824,7 +834,7 @@ jobs:
           $lines.Add('Inventario informativo; no demuestra aislamiento ni carga GUI.')
           $lines.Add('=== Diagnostico rutas reales de dependencias ===')
           foreach ($module in @('Gtk3.pm','Cairo/GObject.pm','Glib/Object/Introspection.pm')) {
-            $found = @(Get-ChildItem "$root\usr" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName.Replace('\','/').EndsWith($module) } | Select-Object -First 8 -ExpandProperty FullName)
+            $found = @(Get-ChildItem "$root\lib", "$root\share" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName.Replace('\','/').EndsWith($module) } | Select-Object -First 8 -ExpandProperty FullName)
             if ($found.Count) { foreach ($f in $found) { $lines.Add("Modulo ${module}: $f") } }
             else { $lines.Add("Modulo ${module}: NO ENCONTRADO") }
           }
@@ -834,6 +844,10 @@ jobs:
           $lines.Add('=== Ubicaciones Perl reportadas por perl -V ===')
           $perlPaths = @(& "$root\bin\perl.exe" -V:installsitearch -V:installvendorarch -V:installarchlib -V:installvendorlib 2>&1)
           foreach ($line in $perlPaths) { $lines.Add([string]$line) }
+          $lines.Add('=== Archivos copiados al staging ===')
+          foreach ($file in @('lib\perl5\vendor_perl\5.44\x86_64-cygwin-threads\Cairo\GObject.pm','lib\perl5\vendor_perl\5.44\x86_64-cygwin-threads\Glib\Object\Introspection.pm','lib\girepository-1.0\Gtk-3.0.typelib')) {
+            $lines.Add("$file : $(Test-Path (Join-Path $stage $file))")
+          }
           $lines.Add('Todavia no se ejecuta GCstar ni se prueba interfaz grafica.')
           $lines.Add('Se requiere verificar rutas, dependencias, fuentes y licencias antes de distribuir.')
           $lines | Set-Content $report -Encoding utf8
