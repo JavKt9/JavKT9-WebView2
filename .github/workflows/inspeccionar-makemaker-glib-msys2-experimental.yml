@@ -34,7 +34,8 @@ jobs:
           pkg-config --cflags --libs glib-2.0 gobject-2.0 gio-2.0
           echo '=== CPAN Glib para obtener directorio ==='
           timeout 800 perl -MCPAN -e 'CPAN::Shell->notest("install","Glib")' > /tmp/glib-cpan.log 2>&1
-          echo "CPAN_EXIT=$?"
+          cpan_exit=$?
+          echo "CPAN_EXIT=$cpan_exit"
           echo '=== Ultimas lineas CPAN ==='
           tail -35 /tmp/glib-cpan.log
           d=$(find "$HOME/.cpan/build" -maxdepth 1 -type d -name 'Glib-*' 2>/dev/null | head -1)
