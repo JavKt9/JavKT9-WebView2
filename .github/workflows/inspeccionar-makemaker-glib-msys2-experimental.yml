@@ -63,54 +63,93 @@ jobs:
           cat ../makefile-pl.log
           grep -nE '^(LD|LDDLFLAGS|LDFROM|EXTRALIBS|LDLOADLIBS|BSLOADLIBS|LIBS|INC|DEFINE) *=' Makefile | tee ../makefile-vars.log || true
           sed -n '595,602p' Makefile
-      - name: Compilar y capturar comando de enlace
+      - name: 5 Compilar y mostrar errores reales
         run: |
-          set -u -o pipefail
+          set +e
+          set -u
           export PATH="/ucrt64/bin:/usr/bin:$PATH"
-          cd /tmp/glib-work/Glib-1.3294
+          cd /tmp/glib-work/Glib-1.3294 || exit 1
           mingw32-make > ../make-full.log 2>&1
           rc=$?
           echo "$rc" > ../make.rc
           echo "MAKE_EXIT=$rc"
-          grep -nE 'g\+\+.*(-shared|Glib.dll)|Glib.dll.*(-shared|g\+\+)' ../make-full.log | head -10 | cut -c1-5000 || true
-          if [ "$rc" -ne 0 ]; then
-            mingw32-make -n 2>&1 | grep -E 'g\+\+|-shared|Glib.dll' | head -10 | cut -c1-5000 || true
-            grep -m8 'undefined reference' ../make-full.log || true
-          fi
+          echo '::group::Errores y resumen'
+          grep -nE 'error:|fatal error|undefined reference|Error [0-9]+' ../make-full.log | head -55 | cut -c1-500 || true
+          echo "UNDEFINED_TOTAL=$(grep -c 'undefined reference' ../make-full.log || true)"
+          echo "UNDEFINED_IMP=$(grep 'undefined reference' ../make-full.log | grep -c '__imp_' || true)"
+          echo '::endgroup::'
+          echo '::group::Comandos completos de enlace'
+          grep -E 'g\+\+.*(-shared|Glib.dll)|Glib.dll.*(-shared|g\+\+)' ../make-full.log | tail -8 | cut -c1-12000 || true
+          echo '::endgroup::'
+          echo '::group::Ultimas 45 lineas'
+          tail -45 ../make-full.log | cut -c1-800
+          echo '::endgroup::'
           exit 0
-      - name: Correccion condicional y carga real
+      - name: 6 Comparar bibliotecas estaticas y de importacion
         run: |
-          set -u -o pipefail
+          set +e
+          set -u
           export PATH="/ucrt64/bin:/usr/bin:$PATH"
-          cd /tmp/glib-work/Glib-1.3294
-          rc="$(cat ../make.rc)"
-          if [ "$rc" -ne 0 ]; then
-            ld="$(sed -n 's/^LDLOADLIBS *= *//p' Makefile | head -1)"
-            echo "LDLOADLIBS_MAKEFILE=[$ld]"
-            if [[ "$ld" != *glib-2.0* || "$ld" != *gobject-2.0* ]]; then
-              echo 'HIPOTESIS_BIBLIOTECAS_AUSENTES: probando override'
-              libs="$(pkg-config --libs glib-2.0 gobject-2.0 gmodule-2.0 gio-2.0)"
-              mingw32-make LDLOADLIBS="-L/ucrt64/lib $libs $ld" > ../fix-make.log 2>&1
-              frc=$?
-              echo "FIX_MAKE_EXIT=$frc"
-              tail -20 ../fix-make.log
-              [ "$frc" -eq 0 ] || exit 1
+          cd /tmp/glib-work/Glib-1.3294 || exit 1
+          echo '::group::Archivos de GLib'
+          ls -l /ucrt64/lib/libglib-2.0.* /ucrt64/lib/libgobject-2.0.* 2>&1
+          for f in /ucrt64/lib/libglib-2.0.a /ucrt64/lib/libglib-2.0.dll.a; do
+            if [ -f "$f" ]; then
+              echo "$f __imp_g_free=$(nm -A "$f" 2>/dev/null | grep -c '__imp_g_free' || true)"
             else
-              echo 'CAUSA_NO_CONFIRMADA: bibliotecas ya presentes; sin override'
-              exit 1
+              echo "$f NO_EXISTE"
             fi
+          done
+          echo '::endgroup::'
+          echo '::group::LDLOADLIBS original'
+          grep '^LDLOADLIBS *=' Makefile || true
+          echo '::endgroup::'
+          echo '::group::Trace de bibliotecas usadas por el enlazador'
+          mingw32-make OTHERLDFLAGS='-Wl,-t' > ../make-trace.log 2>&1
+          echo "TRACE_EXIT=$?"
+          grep -iE 'lib(glib|gobject|gthread|gio|gmodule)-2\.0|libintl' ../make-trace.log | grep -v 'undefined reference' | head -35 | cut -c1-600 || true
+          echo '::endgroup::'
+          exit 0
+      - name: 7 Correccion condicional de bibliotecas de importacion
+        run: |
+          set +e
+          set -u
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          cd /tmp/glib-work/Glib-1.3294 || exit 1
+          if [ "$(cat ../make.rc)" = 0 ]; then
+            echo 'Compilacion inicial correcta'
+            mingw32-make install > ../install.log 2>&1
+            echo "INSTALL_EXIT=$?"
+            tail -12 ../install.log
+            exit 0
           fi
-          mingw32-make install > ../install.log 2>&1 || { tail -30 ../install.log; exit 1; }
-          perl -MGlib -e 'print "GLIB_OK ", join(".", Glib->GET_VERSION_INFO), " (bindings $Glib::VERSION)\n"' || exit 1
+          ld="$(sed -n 's/^LDLOADLIBS *= *//p' Makefile | head -1)"
+          if ! printf '%s' "$ld" | grep -Eq 'lib(glib|gobject|gthread|gio|gmodule)-2\.0\.a|libintl\.a'; then
+            echo 'CAUSA_NO_CONFIRMADA: sin rutas .a de GLib'
+            exit 0
+          fi
+          echo 'HIPOTESIS_IMPORT_LIB: Makefile fija bibliotecas .a; probando -l en vez de ruta completa'
+          fixed="$(printf '%s\n' "$ld" | perl -pe 's{"[^"]*[/\\]lib(glib-2\.0|gobject-2\.0|gthread-2\.0|gio-2\.0|gmodule-2\.0|intl)\.a"}{-l$1}g')"
+          echo "LDLOADLIBS_OVERRIDE=$fixed"
+          mingw32-make LDLOADLIBS="$fixed" install > ../fix-make.log 2>&1
+          frc=$?
+          echo "FIX_MAKE_EXIT=$frc"
+          grep -nE 'error:|undefined reference|Error [0-9]+' ../fix-make.log | head -35 | cut -c1-500 || true
+          tail -25 ../fix-make.log | cut -c1-600
+          exit 0
+      - name: 8 Verificar carga y funcionamiento real
+        run: |
+          set +e
+          set -u
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          perl -MGlib -e 'print "GLIB_OK ", join(".", Glib->GET_VERSION_INFO), " (bindings $Glib::VERSION)\n"'
+          rc=$?
+          if [ "$rc" -ne 0 ]; then echo GLIB_PERL_LOAD=ERROR; exit 1; fi
           echo GLIB_PERL_LOAD=OK
-          perl -MGlib -e 'my $l=Glib::MainLoop->new; Glib::Timeout->add(50,sub{$l->quit;0}); $l->run; print "GLIB_MAINLOOP_OK\n"' || exit 1
+          perl -MGlib -e 'my $l=Glib::MainLoop->new; Glib::Timeout->add(50,sub{$l->quit;0}); $l->run; print "GLIB_MAINLOOP_OK\n"'
+          rc=$?
+          if [ "$rc" -ne 0 ]; then echo GLIB_FUNCTIONAL=ERROR; exit 1; fi
           echo GLIB_FUNCTIONAL=OK
           dll="$(find /ucrt64/lib/perl5 -name Glib.dll -print -quit)"
-          [ -n "$dll" ] && ldd "$dll" || true
-      - name: Subir logs diagnosticos
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: glib-diagnostico-logs
-          path: D:/a/_temp/msys64/tmp/glib-work/*.log
-          if-no-files-found: warn
+          echo "DLL=$dll"
+          if [ -n "$dll" ]; then ldd "$dll"; fi
