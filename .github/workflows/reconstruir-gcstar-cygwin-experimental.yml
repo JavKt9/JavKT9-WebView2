@@ -749,7 +749,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $report = 'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_SIN_PAR.txt'
           $lines = [System.Collections.Generic.List[string]]::new()
-          $lines.Add('EXPERIMENTAL - CUARTA PRUEBA SIN PAR: rutas Perl completas y origen de modulos. NO PUBLICAR.')
+          $lines.Add('EXPERIMENTAL - QUINTA PRUEBA SIN PAR: inventario de DLL nativas y origen de modulos. NO PUBLICAR.')
           $root = 'C:\cygwin64'
           $stage = Join-Path $env:RUNNER_TEMP 'gcstar-runtime-sin-par'
           $bin = Join-Path $stage 'bin'
@@ -802,6 +802,19 @@ jobs:
             )
             $probeSource | Set-Content $probe -Encoding ascii
             $lines.Add('La prueba GTK3 restringe @INC a rutas de staging; no demuestra aislamiento de DLL ni GUI.')
+            $lines.Add('=== DLL nativas de extensiones Perl ===')
+            $objdump = Join-Path $root 'bin\objdump.exe'
+            foreach ($relative in @('lib\perl5\vendor_perl\5.44\x86_64-cygwin-threads\auto\Cairo\GObject\GObject.dll','lib\perl5\vendor_perl\5.44\x86_64-cygwin-threads\auto\Glib\Object\Introspection\Introspection.dll')) {
+              $native = Join-Path $stage $relative
+              $lines.Add("Extension: $relative; copiada=$(Test-Path $native)")
+              if ((Test-Path $native) -and (Test-Path $objdump)) {
+                $imports = @(& $objdump -p $native 2>&1 | ForEach-Object { if ([string]$_ -match 'DLL Name:\s*(\S+)') { $Matches[1] } } | Sort-Object -Unique)
+                foreach ($dll in $imports) {
+                  $lines.Add("Importa: $dll; staging=$(Test-Path (Join-Path $bin $dll)); original=$(Test-Path (Join-Path (Join-Path $root 'bin') $dll))")
+                }
+              }
+            }
+            $lines.Add('Inventario estatico: no prueba origen real de DLL cargadas.')
             $perl = Join-Path $bin 'perl.exe'
             foreach ($test in @(
               @{ Name='perl-version'; Args=@('-v') },
