@@ -1,0 +1,68 @@
+name: Compilar bindings Perl GTK3 MSYS2 experimental
+on:
+  push:
+    branches: [experimento-gcstar-par-rc1]
+    paths: ['.github/workflows/compilar-bindings-perl-gtk3-msys2-experimental.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  perl-bindings:
+    runs-on: windows-2022
+    timeout-minutes: 55
+    steps:
+      - name: Preparar toolchain nativo UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-perl
+            mingw-w64-ucrt-x86_64-gtk3
+            mingw-w64-ucrt-x86_64-gobject-introspection
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-make
+            mingw-w64-ucrt-x86_64-cairo
+            mingw-w64-ucrt-x86_64-pango
+            mingw-w64-ucrt-x86_64-glib2
+            mingw-w64-ucrt-x86_64-libffi
+      - name: Compilar e inspeccionar bindings Perl
+        shell: msys2 {0}
+        env:
+          PERL_MM_USE_DEFAULT: '1'
+          PERL_EXTUTILS_AUTOINSTALL: '--defaultdeps'
+          PERL_CPANM_OPT: '--notest'
+        run: |
+          set -u
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig"
+          export GI_TYPELIB_PATH="/ucrt64/lib/girepository-1.0"
+          export PERL_MM_USE_DEFAULT=1
+          echo '=== PRUEBA EXPERIMENTAL: NO RELEASE, NO PORTABILIDAD, NO GUI VALIDADA ==='
+          perl -e 'print "Perl $^V ($^O) $^X\n"'
+          pkg-config --modversion gtk+-3.0
+          pkg-config --modversion gobject-introspection-1.0 || true
+          echo '=== CPAN disponible ==='
+          perl -MCPAN -e 'print "CPAN $CPAN::VERSION\n"'
+          echo '=== Compilacion secuencial con limites de tiempo ==='
+          for module in Glib Glib::Object::Introspection Gtk3; do
+            echo "=== INICIO CPAN $module ==="
+            if timeout 780 perl -MCPAN -e 'CPAN::Shell->notest("install", $ARGV[0])' "$module"; then
+              echo "CPAN_RESULTADO $module OK"
+            else
+              code=$?
+              echo "CPAN_RESULTADO $module ERROR codigo=$code"
+            fi
+            if perl -M"$module" -e 1; then
+              echo "CARGA_RESULTADO $module OK"
+            else
+              code=$?
+              echo "CARGA_RESULTADO $module ERROR codigo=$code"
+            fi
+          done
+          echo '=== Verificacion final de los tres bindings ==='
+          for module in Glib Glib::Object::Introspection Gtk3; do
+            if perl -M"$module" -e 1; then echo "FINAL $module PRESENTE"; else echo "FINAL $module AUSENTE"; fi
+          done
+          echo '=== FIN: NO se probo ventana grafica ni GCstar ==='
