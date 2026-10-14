@@ -23,6 +23,7 @@ jobs:
           install: >-
             mingw-w64-ucrt-x86_64-perl
             mingw-w64-ucrt-x86_64-cairo
+            mingw-w64-ucrt-x86_64-glib2
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-make
@@ -131,3 +132,38 @@ jobs:
           dll="$(find /ucrt64/lib/perl5 -name Cairo.dll -print -quit)"
           test -n "$dll"
           ldd "$dll"
+      - name: 5 Instalar Glib con enlazado nativo comprobado
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
+          cd "$WORK"
+          curl -fsSL --retry 2 -o Glib-1.3294.tar.gz https://cpan.metacpan.org/authors/id/X/XA/XAOC/Glib-1.3294.tar.gz
+          echo 'd715f5a86bcc187075de85e7ae5bc07b0714d6edc196a92da43986efa44e5cbb  Glib-1.3294.tar.gz' | sha256sum -c -
+          tar -xzf Glib-1.3294.tar.gz
+          cd Glib-1.3294
+          perl Makefile.PL > "$WORK/glib-config.log" 2>&1 || { tail -70 "$WORK/glib-config.log"; exit 1; }
+          ld="$(sed -n 's/^LDLOADLIBS *= *//p' Makefile | head -1)"
+          fixed="$(printf '%s\n' "$ld" | perl -pe 's{\x22[^\x22]*lib(glib-2\.0|gobject-2\.0|gthread-2\.0|gio-2\.0|gmodule-2\.0|intl)\.a\x22}{-l$1}g')"
+          echo "GLIB_LD_CHANGED=$([ "$ld" != "$fixed" ] && echo yes || echo no)"
+          test "$ld" != "$fixed"
+          mingw32-make LDLOADLIBS="$fixed" install > "$WORK/glib-build.log" 2>&1 || { tail -90 "$WORK/glib-build.log"; exit 1; }
+          perl -MGlib -e 'my $l=Glib::MainLoop->new; Glib::Timeout->add(20,sub{$l->quit;0}); $l->run; print "GLIB_FUNCTIONAL=OK version=$Glib::VERSION\n"'
+      - name: 6 Instalar Cairo GObject y diagnosticar errores
+        run: |
+          set +e
+          export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
+          echo '=== PRUEBA Cairo::GObject con Glib y Cairo instalados ==='
+          perl -MCairo -MGlib -e 'print "CAIRO_AND_GLIB_LOAD=OK\n"'
+          timeout 900 perl -MCPAN -e 'CPAN::Shell->notest("install","Cairo::GObject")' > "$WORK/cairo-gobject.log" 2>&1
+          rc=$?
+          echo "CAIRO_GOBJECT_CPAN_EXIT=$rc"
+          echo '::group::Errores de Cairo GObject'
+          grep -nEi 'error:|undefined reference|Perl_SvPV_helper|not found|failed|cannot|Error [0-9]+' "$WORK/cairo-gobject.log" | tail -100 | cut -c1-700 || true
+          echo '::endgroup::'
+          tail -95 "$WORK/cairo-gobject.log" | cut -c1-900
+          if perl -MCairo::GObject -e 'print "CAIRO_GOBJECT_LOAD=OK\n"'; then
+            echo 'CAIRO_GOBJECT_FINAL=OK'
+          else
+            echo 'CAIRO_GOBJECT_FINAL=ERROR'
+            exit 1
+          fi
