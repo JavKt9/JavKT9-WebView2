@@ -96,8 +96,27 @@ jobs:
           grep -nE 'error:|undefined reference|Error [0-9]+' "$WORK/build.log" | head -65 | cut -c1-600 || true
           echo '::endgroup::'
           tail -45 "$WORK/build.log" | cut -c1-900
-          if [ "$rc" -ne 0 ]; then exit 1; fi
-          mingw32-make install > "$WORK/install.log" 2>&1
+          if [ "$rc" -ne 0 ]; then
+            if grep -q 'undefined reference' "$WORK/build.log"; then
+              echo '=== Diagnostico de bibliotecas Cairo ==='
+              grep '^LDLOADLIBS *=' Makefile || true
+              ls -l /ucrt64/lib/libcairo.a /ucrt64/lib/libcairo.dll.a 2>&1 || true
+              echo "STATIC_IMP_SYMBOLS=$(nm -A /ucrt64/lib/libcairo.a 2>/dev/null | grep -c '__imp_cairo_surface_set_mime_data' || true)"
+              echo "IMPORT_IMP_SYMBOLS=$(nm -A /ucrt64/lib/libcairo.dll.a 2>/dev/null | grep -c '__imp_cairo_surface_set_mime_data' || true)"
+              ld="$(sed -n 's/^LDLOADLIBS *= *//p' Makefile | head -1)"
+              fixed="$(printf '%s\n' "$ld" | perl -pe 's{"[^"]*[/\\]lib(cairo|cairo-gobject|pixman-1|png16|freetype|fontconfig|glib-2\\.0|gobject-2\\.0|intl)\\.a"}{-l$1}g')"
+              echo "LDLOADLIBS_CHANGED=$([ "$ld" != "$fixed" ] && echo yes || echo no)"
+              echo "LDLOADLIBS_FIXED=$fixed"
+              if [ "$ld" != "$fixed" ]; then
+                mingw32-make LDLOADLIBS="$fixed" > "$WORK/relink.log" 2>&1
+                rc=$?
+                echo "RELINK_EXIT=$rc"
+                tail -45 "$WORK/relink.log" | cut -c1-900
+              fi
+            fi
+            if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          fi
+          mingw32-make ${fixed:+LDLOADLIBS="$fixed"} install > "$WORK/install.log" 2>&1
           rc=$?
           echo "INSTALL_EXIT=$rc"
           tail -30 "$WORK/install.log"
