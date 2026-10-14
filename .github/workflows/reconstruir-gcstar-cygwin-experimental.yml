@@ -749,23 +749,46 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $report = 'out-gcstar-cygwin-experimental/PRUEBA_RUNTIME_SIN_PAR.txt'
           $lines = [System.Collections.Generic.List[string]]::new()
-          $lines.Add('EXPERIMENTAL - PRIMERA PRUEBA SIN PAR. NO PUBLICAR.')
+          $lines.Add('EXPERIMENTAL - SEGUNDA PRUEBA SIN PAR: modulos Perl y typelibs. NO PUBLICAR.')
           $root = 'C:\cygwin64'
           $stage = Join-Path $env:RUNNER_TEMP 'gcstar-runtime-sin-par'
           $bin = Join-Path $stage 'bin'
           New-Item -ItemType Directory -Force $bin | Out-Null
-          # Copia inicial amplia de DLL para aislar el problema de PAR; se reducira despues.
           Copy-Item "$root\bin\*.dll" $bin -Force
           Copy-Item "$root\bin\perl.exe" $bin -Force
           $lines.Add("DLL copiadas: $(@(Get-ChildItem $bin -Filter '*.dll').Count)")
+          foreach ($relative in @('usr\lib\perl5','usr\share\perl5','usr\lib\girepository-1.0','usr\share\gir-1.0')) {
+            $source = Join-Path $root $relative
+            $target = Join-Path $stage $relative
+            if (Test-Path $source) {
+              New-Item -ItemType Directory -Force (Split-Path $target -Parent) | Out-Null
+              Copy-Item $source $target -Recurse -Force
+              $lines.Add("Copiado: $relative")
+            } else { $lines.Add("No existe: $relative") }
+          }
+          $cygpath = Join-Path $root 'bin\cygpath.exe'
+          $libPaths = @()
+          foreach ($relative in @('usr\lib\perl5','usr\share\perl5')) {
+            $target = Join-Path $stage $relative
+            if (Test-Path $target) {
+              $unixPath = (& $cygpath -u $target).Trim()
+              $libPaths += $unixPath
+            }
+          }
           $oldPath = $env:PATH
+          $oldPerl5lib = $env:PERL5LIB
+          $oldGI = $env:GI_TYPELIB_PATH
           try {
             $env:PATH = "$bin;$env:SystemRoot\System32;$env:SystemRoot"
-            $env:PERL5LIB = ''
+            $env:PERL5LIB = $libPaths -join ':'
+            $giDir = Join-Path $stage 'usr\lib\girepository-1.0'
+            if (Test-Path $giDir) { $env:GI_TYPELIB_PATH = (& $cygpath -u $giDir).Trim() }
+            $lines.Add("PERL5LIB: $env:PERL5LIB")
+            $lines.Add("GI_TYPELIB_PATH: $env:GI_TYPELIB_PATH")
             $perl = Join-Path $bin 'perl.exe'
             foreach ($test in @(
               @{ Name='perl-version'; Args=@('-v') },
-              @{ Name='gtk3-import'; Args=@('-MGtk3','-e','print qq(GTK3_IMPORT_OK\n)') }
+              @{ Name='gtk3-import'; Args=@('-MGtk3','-e','1') }
             )) {
               $lines.Add("=== $($test.Name) ===")
               $stdout = Join-Path $stage "$($test.Name).out.txt"
@@ -778,10 +801,13 @@ jobs:
               $lines.Add('stdout: ' + [string](Get-Content $stdout -Raw -ErrorAction SilentlyContinue))
               $lines.Add('stderr: ' + [string](Get-Content $stderr -Raw -ErrorAction SilentlyContinue))
             }
-          } finally { $env:PATH = $oldPath; Remove-Item Env:PERL5LIB -ErrorAction SilentlyContinue }
-          $lines.Add('Esta prueba no contiene todavia el arbol lib/share de Perl y GTK3.')
-          $lines.Add('Si Gtk3 falla por rutas o modulos, es informacion diagnostica; no valida portabilidad.')
-          $lines.Add('No se modifico RC1 ni se probo la interfaz grafica.')
+          } finally {
+            $env:PATH = $oldPath
+            $env:PERL5LIB = $oldPerl5lib
+            $env:GI_TYPELIB_PATH = $oldGI
+          }
+          $lines.Add('Todavia no se ejecuta GCstar ni se prueba interfaz grafica.')
+          $lines.Add('Se requiere verificar rutas, dependencias, fuentes y licencias antes de distribuir.')
           $lines | Set-Content $report -Encoding utf8
           Get-Content $report | ForEach-Object { Write-Host $_ }
           $global:LASTEXITCODE = 0
