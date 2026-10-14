@@ -7,63 +7,110 @@ on:
 permissions:
   contents: read
 jobs:
-  inspect-glib:
+  glib:
     runs-on: windows-2022
-    timeout-minutes: 35
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
-      - name: Preparar MSYS2 Perl GLib
-        uses: msys2/setup-msys2@v2
+      - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
-          update: true
+          update: false
           install: >-
-            mingw-w64-ucrt-x86_64-perl
             mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-make
-            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-perl
             mingw-w64-ucrt-x86_64-glib2
-      - name: Capturar Liblist Makefile y comando completo de enlace
-        shell: msys2 {0}
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-make
+            curl
+            tar
+      - name: Entorno y prerrequisitos
         run: |
-          set -u
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
+          mkdir -p /tmp/glib-work
+          perl -V:version -V:archname -V:make -V:cc -V:ld -V:lddlflags -V:libpth -V:lib_ext
+          pkg-config --modversion glib-2.0
+          pkg-config --libs glib-2.0 gobject-2.0 gmodule-2.0 gio-2.0
+          perl -MCPAN -e 'CPAN::Shell->notest("install","ExtUtils::Depends","ExtUtils::PkgConfig")' > /tmp/glib-work/prereq.log 2>&1 || true
+          perl -MExtUtils::Depends -MExtUtils::PkgConfig -e 'print "PREREQ_OK\n"' || { tail -40 /tmp/glib-work/prereq.log; exit 1; }
+      - name: Descargar Glib 1.3294
+        run: |
+          set -euo pipefail
           export PATH="/ucrt64/bin:/usr/bin:$PATH"
-          export PERL_MM_USE_DEFAULT=1
-          echo '=== SOLO DIAGNOSTICO: SIN PARCHE, SIN RELEASE ==='
-          echo '=== Perl y bibliotecas ==='
-          perl -V:ld -V:libs -V:lddlflags
-          pkg-config --cflags --libs glib-2.0 gobject-2.0 gio-2.0
-          echo '=== CPAN Glib para obtener directorio ==='
-          cpan_exit=0
-          timeout 800 perl -MCPAN -e 'CPAN::Shell->notest("install","Glib")' > /tmp/glib-cpan.log 2>&1 || cpan_exit=$?
-          echo "CPAN_EXIT=$cpan_exit"
-          echo '=== Ultimas lineas CPAN ==='
-          tail -35 /tmp/glib-cpan.log
-          d=$(find "$HOME/.cpan/build" -maxdepth 1 -type d -name 'Glib-*' 2>/dev/null | head -1)
-          echo "BUILD_DIR=$d"
-          if [ -z "$d" ]; then echo 'ERROR: no existe directorio Glib'; exit 1; fi
-          cd "$d"
-          echo '=== ExtUtils Liblist ==='
-          pclibs="-L/ucrt64/lib $(pkg-config --libs glib-2.0 gobject-2.0 gio-2.0)"
-          echo "LIBLIST_INPUT=$pclibs"
-          perl -MExtUtils::Liblist -e 'my @r=ExtUtils::Liblist->ext($ARGV[0],1); print "EXTRALIBS=[$r[0]]\nLDLOADLIBS=[$r[2]]\n"' -- "$pclibs" 2>&1 || true
-          echo '=== Makefile.PL completo ==='
-          mkpl_exit=0
-          perl Makefile.PL > /tmp/mkpl.log 2>&1 || mkpl_exit=$?
-          echo "MAKEFILE_PL_EXIT=$mkpl_exit"
-          cat /tmp/mkpl.log
-          echo '=== Variables del Makefile ==='
-          grep -n -E '^(EXTRALIBS|LDLOADLIBS|BSLOADLIBS|LDDLFLAGS|LDFROM|OTHERLDFLAGS|INC|LD|LDFLAGS|DEFINE) *=' Makefile || true
-          echo '=== Regla de enlace ==='
-          sed -n '590,610p' Makefile
-          echo '=== Dry run ==='
-          mingw32-make -n blib/arch/auto/Glib/Glib.dll 2>&1 | tail -45 || true
-          echo '=== Recompilacion completa ==='
-          make_exit=0
-          mingw32-make > /tmp/make-full.log 2>&1 || make_exit=$?
-          echo "MAKE_EXIT=$make_exit"
-          echo '=== Comandos de enlace reales ==='
-          grep -n -E 'g\+\+|gcc | -shared|\.dll' /tmp/make-full.log | tail -65 || true
-          echo '=== Ultimas lineas make ==='
-          tail -65 /tmp/make-full.log
-          echo '=== Carga Perl ==='
-          if perl -MGlib -e 'print "GLIB_OK\n"'; then echo 'GLIB_LOAD=OK'; else echo 'GLIB_LOAD=ERROR'; fi
+          cd /tmp/glib-work
+          curl -fSL --retry 2 -o Glib-1.3294.tar.gz https://cpan.metacpan.org/authors/id/X/XA/XAOC/Glib-1.3294.tar.gz || { echo DESCARGA_ERROR; exit 1; }
+          sha256sum Glib-1.3294.tar.gz
+          tar -xzf Glib-1.3294.tar.gz
+          test -f Glib-1.3294/Makefile.PL
+      - name: Diagnosticar Liblist y Makefile
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          cd /tmp/glib-work
+          cat > liblist.pl <<'PERL'
+          use ExtUtils::Liblist;
+          my $in = shift;
+          my @r = ExtUtils::Liblist->ext($in, 2);
+          print "ENTRADA=[$in]\nEXTRALIBS=[$r[0]]\nBSLOADLIBS=[$r[1]]\nLDLOADLIBS=[$r[2]]\n";
+          PERL
+          libs="$(pkg-config --libs glib-2.0 gobject-2.0 gmodule-2.0 gio-2.0)"
+          perl liblist.pl "-L/ucrt64/lib $libs" 2>&1 | tee liblist.log
+          cd Glib-1.3294
+          perl Makefile.PL > ../makefile-pl.log 2>&1 || { cat ../makefile-pl.log; exit 1; }
+          cat ../makefile-pl.log
+          grep -nE '^(LD|LDDLFLAGS|LDFROM|EXTRALIBS|LDLOADLIBS|BSLOADLIBS|LIBS|INC|DEFINE) *=' Makefile | tee ../makefile-vars.log || true
+          sed -n '595,602p' Makefile
+      - name: Compilar y capturar comando de enlace
+        run: |
+          set -u -o pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          cd /tmp/glib-work/Glib-1.3294
+          mingw32-make > ../make-full.log 2>&1
+          rc=$?
+          echo "$rc" > ../make.rc
+          echo "MAKE_EXIT=$rc"
+          grep -nE 'g\+\+.*(-shared|Glib.dll)|Glib.dll.*(-shared|g\+\+)' ../make-full.log | head -10 | cut -c1-5000 || true
+          if [ "$rc" -ne 0 ]; then
+            mingw32-make -n 2>&1 | grep -E 'g\+\+|-shared|Glib.dll' | head -10 | cut -c1-5000 || true
+            grep -m8 'undefined reference' ../make-full.log || true
+          fi
+          exit 0
+      - name: Correccion condicional y carga real
+        run: |
+          set -u -o pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          cd /tmp/glib-work/Glib-1.3294
+          rc="$(cat ../make.rc)"
+          if [ "$rc" -ne 0 ]; then
+            ld="$(sed -n 's/^LDLOADLIBS *= *//p' Makefile | head -1)"
+            echo "LDLOADLIBS_MAKEFILE=[$ld]"
+            if [[ "$ld" != *glib-2.0* || "$ld" != *gobject-2.0* ]]; then
+              echo 'HIPOTESIS_BIBLIOTECAS_AUSENTES: probando override'
+              libs="$(pkg-config --libs glib-2.0 gobject-2.0 gmodule-2.0 gio-2.0)"
+              mingw32-make LDLOADLIBS="-L/ucrt64/lib $libs $ld" > ../fix-make.log 2>&1
+              frc=$?
+              echo "FIX_MAKE_EXIT=$frc"
+              tail -20 ../fix-make.log
+              [ "$frc" -eq 0 ] || exit 1
+            else
+              echo 'CAUSA_NO_CONFIRMADA: bibliotecas ya presentes; sin override'
+              exit 1
+            fi
+          fi
+          mingw32-make install > ../install.log 2>&1 || { tail -30 ../install.log; exit 1; }
+          perl -MGlib -e 'print "GLIB_OK ", join(".", Glib->GET_VERSION_INFO), " (bindings $Glib::VERSION)\n"' || exit 1
+          echo GLIB_PERL_LOAD=OK
+          perl -MGlib -e 'my $l=Glib::MainLoop->new; Glib::Timeout->add(50,sub{$l->quit;0}); $l->run; print "GLIB_MAINLOOP_OK\n"' || exit 1
+          echo GLIB_FUNCTIONAL=OK
+          dll="$(find /ucrt64/lib/perl5 -name Glib.dll -print -quit)"
+          [ -n "$dll" ] && ldd "$dll" || true
+      - name: Subir logs diagnosticos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: glib-diagnostico-logs
+          path: D:/a/_temp/msys64/tmp/glib-work/*.log
+          if-no-files-found: warn
