@@ -346,6 +346,26 @@ jobs:
           find src -iname '*gcstar*png' -o -iname '*gcstar*ico' | head -30 || true
           echo '=== Referencias a recursos ==='
           grep -R -n -m 2 'gcstar_16x16.png' src/perl/bin src/perl/lib/gcstar | head -15 || true
+      - name: 12i Recuperar recursos originales GCstar 1.8.1
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          mkdir -p "$WORK/gcstar-upstream"
+          curl -fL --retry 3 --connect-timeout 20 -o "$WORK/gcstar-1.8.1.tar.gz" "https://gitlab.com/GCstar/GCstar/-/archive/v1.8.1/GCstar-v1.8.1.tar.gz"
+          tar -xzf "$WORK/gcstar-1.8.1.tar.gz" -C "$WORK/gcstar-upstream"
+          upstream="$(find "$WORK/gcstar-upstream" -type f -path '*/share/gcstar/icons/gcstar_16x16.png' -print -quit)"
+          if [ -z "$upstream" ]; then
+            echo 'GCSTAR_UPSTREAM_ICON=NOT_FOUND'
+            find "$WORK/gcstar-upstream" -type f -name 'gcstar_16x16.png' | head -10
+            exit 1
+          fi
+          share_dir="${upstream%/icons/gcstar_16x16.png}"
+          mkdir -p src/perl/share/gcstar
+          cp -R "$share_dir"/. src/perl/share/gcstar/
+          test -s src/perl/share/gcstar/icons/gcstar_16x16.png
+          echo 'GCSTAR_SHARE_RESOURCES=OK'
+          echo "GCSTAR_SHARE_FILES=$(find src/perl/share/gcstar -type f | wc -l)"
+          echo 'GCSTAR_SOURCE_CODE=UNCHANGED'
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
