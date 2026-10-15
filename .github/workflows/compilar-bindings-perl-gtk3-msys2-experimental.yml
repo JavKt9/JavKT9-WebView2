@@ -381,6 +381,68 @@ jobs:
         run: |
           set -euo pipefail
           grep -n '^use Gtk3::SimpleList;' src/perl/lib/gcstar/GCGraphicComponents/GCBasicWidgets.pm
+      - name: 12l Preparar verificador Win32 de ventana GCstar
+        shell: pwsh
+        run: |
+          @'
+          using System;
+          using System.Text;
+          using System.Runtime.InteropServices;
+          public static class GcstarWindowProbe {
+            public delegate bool EnumProc(IntPtr hwnd, IntPtr param);
+            [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr param);
+            [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hwnd);
+            [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hwnd);
+            [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hwnd, StringBuilder s, int n);
+            [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+            public static void Main(string[] args) {
+              uint target = uint.Parse(args[0]); int found = 0;
+              EnumWindows((hwnd, unused) => {
+                uint pid; GetWindowThreadProcessId(hwnd, out pid);
+                if (pid != target || !IsWindowVisible(hwnd)) return true;
+                int length = GetWindowTextLength(hwnd);
+                var title = new StringBuilder(Math.Max(length + 1, 256));
+                GetWindowText(hwnd, title, title.Capacity);
+                Console.WriteLine("GCSTAR_WINDOW_TITLE=" + title.ToString());
+                Console.WriteLine("GCSTAR_WINDOW_HANDLE=" + hwnd);
+                found++;
+                return true;
+              }, IntPtr.Zero);
+              Console.WriteLine("GCSTAR_VISIBLE_WINDOWS=" + found);
+              Environment.ExitCode = found > 0 ? 0 : 2;
+            }
+          }
+          '@ | Set-Content -Encoding utf8 "$env:RUNNER_TEMP/gcstar-window-probe.cs"
+          Add-Type -Path "$env:RUNNER_TEMP/gcstar-window-probe.cs" -OutputAssembly "$env:RUNNER_TEMP/gcstar-window-probe.exe" -OutputType ConsoleApplication
+      - name: 12m Verificar ventana real de GCstar en Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bash = 'D:\a\_temp\msys64\usr\bin\bash.exe'
+          if (-not (Test-Path $bash)) { $bash = 'C:\msys64\usr\bin\bash.exe' }
+          if (-not (Test-Path $bash)) { throw 'No se encontro bash MSYS2 para lanzar GCstar' }
+          $appdataLog = Join-Path $env:APPDATA 'JavKT9-081-RC1-Publica-Publica\gcstar.log'
+          $args = '-lc "export PATH=/ucrt64/bin:/usr/bin:\$PATH; export GCS_PROFILING=1; cd \"$(cygpath -u \"$env:GITHUB_WORKSPACE\")\"; exec /ucrt64/bin/perl src/perl/bin/gcstar"'
+          $p = Start-Process -FilePath $bash -ArgumentList $args -PassThru -WindowStyle Hidden
+          try {
+            Start-Sleep -Seconds 12
+            if ($p.HasExited) { throw "GCSTAR_GUI_PROCESS_EXITED=$($p.ExitCode)" }
+            $children = Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $p.Id -or $_.ProcessId -eq $p.Id }
+            $pids = @($p.Id) + @($children | ForEach-Object ProcessId)
+            $found = $false
+            foreach ($pidCandidate in ($pids | Select-Object -Unique)) {
+              & "$env:RUNNER_TEMP/gcstar-window-probe.exe" "$pidCandidate"
+              if ($LASTEXITCODE -eq 0) { $found = $true }
+            }
+            if (-not $found) {
+              if (Test-Path $appdataLog) { Get-Content $appdataLog -Tail 50 }
+              throw 'GCSTAR_GUI_WINDOW=NOT_VERIFIED'
+            }
+            Write-Output 'GCSTAR_GUI_WINDOW=VERIFIED_VISIBLE'
+          } finally {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $p.Id } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+          }
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
