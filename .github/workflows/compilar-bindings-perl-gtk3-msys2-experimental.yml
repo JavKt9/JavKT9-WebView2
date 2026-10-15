@@ -315,6 +315,13 @@ jobs:
           perl -MCPAN -e 'CPAN::Shell->notest("install","LWP::Protocol::https")' > "$WORK/lwp-https-install.log" 2>&1
           tail -40 "$WORK/lwp-https-install.log"
           perl -MLWP::Protocol::https -e 'print "LWP_HTTPS_LOAD=OK\\n"'
+      - name: 12f Instalar XML Simple para GCstar
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
+          perl -MCPAN -e 'CPAN::Shell->notest("install","XML::Simple")' > "$WORK/xml-simple-install.log" 2>&1
+          tail -40 "$WORK/xml-simple-install.log"
+          perl -MXML::Simple -e 'print "XML_SIMPLE_LOAD=OK\\n"'
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
