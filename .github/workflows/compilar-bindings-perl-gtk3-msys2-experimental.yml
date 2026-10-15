@@ -16,6 +16,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
+      - uses: actions/checkout@v4
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -286,3 +287,35 @@ jobs:
           PERL
           timeout 30 perl "$WORK/gtk-window-test.pl"
           echo 'GTK3_WINDOW_TEST=OK'
+      - name: 13 Diagnosticar arranque GCstar completo
+        run: |
+          set +e
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          export HOME="$WORK/gcstar-home"
+          mkdir -p "$HOME"
+          echo '=== Version GCstar y rutas ==='
+          perl src/perl/bin/gcstar --version > "$WORK/gcstar-version.log" 2>&1
+          ver_rc=$?
+          echo "GCSTAR_VERSION_EXIT=$ver_rc"
+          tail -35 "$WORK/gcstar-version.log"
+          echo '=== Prueba de inicio completo (limite 25 s) ==='
+          export GCS_PROFILING=1
+          timeout 25 perl src/perl/bin/gcstar > "$WORK/gcstar-start.log" 2>&1
+          start_rc=$?
+          echo "GCSTAR_START_EXIT=$start_rc"
+          echo '::group::Log de arranque'
+          tail -120 "$WORK/gcstar-start.log" | cut -c1-1000
+          echo '::endgroup::'
+          echo '=== Modulos faltantes ==='
+          grep -nEi "Can't locate|Can't load|error|failed|undefined|uninitialized|could not" "$WORK/gcstar-start.log" | tail -70 | cut -c1-900 || true
+          if [ "$ver_rc" -ne 0 ]; then echo 'GCSTAR_VERSION=ERROR'; exit 1; fi
+          if [ "$start_rc" -eq 124 ]; then
+            echo 'GCSTAR_PROCESS_SURVIVED_25S=YES'
+            echo 'GCSTAR_SMOKE=PASS_PROCESS_ONLY'
+          elif [ "$start_rc" -eq 0 ]; then
+            echo 'GCSTAR_PROCESS_EXITED_NORMALLY=YES'
+            echo 'GCSTAR_SMOKE=NEEDS_GUI_REVIEW'
+          else
+            echo 'GCSTAR_SMOKE=ERROR'
+            exit 1
+          fi
