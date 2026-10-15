@@ -422,11 +422,21 @@ jobs:
           if (-not (Test-Path $bash)) { $bash = 'C:\msys64\usr\bin\bash.exe' }
           if (-not (Test-Path $bash)) { throw 'No se encontro bash MSYS2 para lanzar GCstar' }
           $appdataLog = Join-Path $env:APPDATA 'JavKT9-081-RC1-Publica-Publica\gcstar.log'
-          $args = '-lc "export PATH=/ucrt64/bin:/usr/bin:\$PATH; export GCS_PROFILING=1; cd \"$(cygpath -u \"$env:GITHUB_WORKSPACE\")\"; exec /ucrt64/bin/perl src/perl/bin/gcstar"'
-          $p = Start-Process -FilePath $bash -ArgumentList $args -PassThru -WindowStyle Hidden
+          $launcher = Join-Path $env:RUNNER_TEMP 'gcstar-gui-launch.sh'
+          @'
+          #!/usr/bin/env bash
+          set -e
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          export GCS_PROFILING=1
+          cd "$(cygpath -u "$GITHUB_WORKSPACE")"
+          exec /ucrt64/bin/perl src/perl/bin/gcstar
+          '@ | Set-Content -Path $launcher -Encoding ascii
+          $launcherUnix = (& $bash -lc "cygpath -u '$($launcher.Replace('\\','/'))'").Trim()
+          Write-Output "GCSTAR_GUI_LAUNCH_SCRIPT=$launcherUnix"
+          $p = Start-Process -FilePath $bash -ArgumentList @($launcherUnix) -PassThru -WindowStyle Hidden
           try {
             Start-Sleep -Seconds 12
-            if ($p.HasExited) { throw "GCSTAR_GUI_PROCESS_EXITED=$($p.ExitCode)" }
+            if ($p.HasExited) { if (Test-Path $appdataLog) { Get-Content $appdataLog -Tail 50 }; throw "GCSTAR_GUI_PROCESS_EXITED=$($p.ExitCode)" }
             $children = Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $p.Id -or $_.ProcessId -eq $p.Id }
             $pids = @($p.Id) + @($children | ForEach-Object ProcessId)
             $found = $false
