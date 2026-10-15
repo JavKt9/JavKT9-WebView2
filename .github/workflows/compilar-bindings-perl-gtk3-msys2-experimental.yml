@@ -346,6 +346,16 @@ jobs:
           timeout 25 perl src/perl/bin/gcstar > "$WORK/gcstar-start.log" 2>&1
           start_rc=$?
           echo "GCSTAR_START_EXIT=$start_rc"
+          echo '=== Log real redirigido por GCstar en APPDATA ==='
+          appdata_unix="$(cygpath -u "$APPDATA")"
+          gcstar_log="$appdata_unix/JavKT9-081-RC1-Publica-Publica/gcstar.log"
+          echo "GCSTAR_LOG_PRESENT=$([ -f "$gcstar_log" ] && echo YES || echo NO)"
+          if [ -f "$gcstar_log" ]; then
+            echo '::group::GCstar APPDATA gcstar.log'
+            tail -150 "$gcstar_log" | cut -c1-1000
+            echo '::endgroup::'
+            grep -nEi "Can't locate|Can't load|error|failed|undefined|uninitialized|could not|fatal|exception" "$gcstar_log" | tail -60 | cut -c1-900 || true
+          fi
           echo '::group::Log de arranque'
           tail -120 "$WORK/gcstar-start.log" | cut -c1-1000
           echo '::endgroup::'
