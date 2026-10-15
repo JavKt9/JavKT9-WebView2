@@ -187,22 +187,44 @@ jobs:
           test -n "$dll"
           ldd "$dll"
           echo 'CAIRO_GOBJECT_FINAL=OK'
-      - name: 8 Compilar Glib Object Introspection desde CPAN
+      - name: 8 Compilar Glib Object Introspection con import libraries
         run: |
-          set +e
+          set -euo pipefail
           export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
-          pkg-config --modversion gobject-introspection-1.0
+          cd "$WORK"
+          echo "GI_NATIVE_VERSION=$(pkg-config --modversion gobject-introspection-1.0)"
           perl -MCairo -MGlib -MCairo::GObject -e 'print "BASE_PERL_BINDINGS=OK\n"'
-          timeout 900 perl -MCPAN -e 'CPAN::Shell->notest("install","Glib::Object::Introspection")' > "$WORK/gi-cpan.log" 2>&1
+          curl -fsSL --retry 2 -o Glib-Object-Introspection-0.052.tar.gz https://cpan.metacpan.org/authors/id/X/XA/XAOC/Glib-Object-Introspection-0.052.tar.gz
+          tar -xzf Glib-Object-Introspection-0.052.tar.gz
+          cd Glib-Object-Introspection-0.052
+          perl Makefile.PL > "$WORK/gi-config.log" 2>&1 || { tail -90 "$WORK/gi-config.log"; exit 1; }
+          echo '=== GI LDLOADLIBS original ==='
+          grep '^LDLOADLIBS *=' Makefile || true
+          ld="$(sed -n 's/^LDLOADLIBS *= *//p' Makefile | head -1)"
+          fixed="$(printf '%s\n' "$ld" | perl -pe 's{\x22[^\x22]*lib(girepository-1\.0|girepository-2\.0|glib-2\.0|gobject-2\.0|gthread-2\.0|gio-2\.0|gmodule-2\.0|intl|ffi)\.a\x22}{-l$1}g')"
+          echo "GI_LD_CHANGED=$([ "$ld" != "$fixed" ] && echo yes || echo no)"
+          echo "GI_LD_FIXED=$fixed"
+          test "$ld" != "$fixed"
+          set +e
+          mingw32-make LDLOADLIBS="$fixed" > "$WORK/gi-build.log" 2>&1
           rc=$?
-          echo "GI_CPAN_EXIT=$rc"
-          echo '::group::Errores introspeccion'
-          grep -nEi 'error:|undefined reference|cannot|failed|not found|Perl_SvPV_helper|Error [0-9]+' "$WORK/gi-cpan.log" | tail -100 | cut -c1-850 || true
-          echo '::endgroup::'
-          tail -100 "$WORK/gi-cpan.log" | cut -c1-950
-          if perl -MGlib::Object::Introspection -e 'print "GI_PERL_LOAD=OK version=$Glib::Object::Introspection::VERSION\n"'; then
-            echo 'GI_FINAL=OK'
-          else
-            echo 'GI_FINAL=ERROR'
-            exit 1
-          fi
+          echo "GI_MAKE_EXIT=$rc"
+          grep -nE 'error:|undefined reference|Error [0-9]+' "$WORK/gi-build.log" | tail -90 | cut -c1-800 || true
+          tail -55 "$WORK/gi-build.log" | cut -c1-900
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          mingw32-make LDLOADLIBS="$fixed" install > "$WORK/gi-install.log" 2>&1
+          rc=$?
+          echo "GI_INSTALL_EXIT=$rc"
+          tail -35 "$WORK/gi-install.log"
+          exit "$rc"
+      - name: 9 Verificar introspeccion Perl real
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          perl -MGlib::Object::Introspection -e 'print "GI_PERL_LOAD=OK version=$Glib::Object::Introspection::VERSION\n"'
+          perl -MGlib::Object::Introspection -e 'Glib::Object::Introspection->setup(basename=>"Gio",version=>"2.0",package=>"Gio"); print "GI_GIO_SETUP=OK\n"'
+          dll="$(find /ucrt64/lib/perl5 -path '*Glib*Object*Introspection*' -name Introspection.dll -print -quit)"
+          echo "GI_DLL=$dll"
+          test -n "$dll"
+          ldd "$dll"
+          echo 'GI_FINAL=OK'
