@@ -251,3 +251,38 @@ jobs:
           perl -MGtk3 -e 'print "GTK3_LOAD=OK\n"; print "GTK3_INIT_CHECK=".(Gtk3->init_check ? "OK" : "NO_DISPLAY")."\n";'
           echo 'GTK3_MODULE_FINAL=OK'
           echo 'NOTA: init_check=NO_DISPLAY no demuestra fallo de GTK; Windows Actions puede carecer de escritorio interactivo'
+      - name: 12 Crear ventana GTK3 y comprobar backend Windows
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          unset DISPLAY WAYLAND_DISPLAY
+          echo '=== Dependencias de GDK GTK ==='
+          objdump -p /ucrt64/bin/libgdk-3-0.dll | grep -i 'DLL Name:' | tail -35
+          if objdump -p /ucrt64/bin/libgdk-3-0.dll | grep -Ei 'DLL Name:.*(cygX11|libX11|libxcb)'; then
+            echo 'GDK_X11_IMPORTS=FOUND'
+            exit 1
+          fi
+          echo 'GDK_X11_IMPORTS=NONE'
+          cat > "$WORK/gtk-window-test.pl" <<'PERL'
+          use strict;
+          use warnings;
+          use Gtk3;
+          use Glib;
+          Gtk3->init;
+          my $window = Gtk3::Window->new('toplevel');
+          $window->set_title('JavKT9 GTK3 Native Test');
+          $window->set_default_size(320, 180);
+          my $label = Gtk3::Label->new('Prueba GTK3 nativa');
+          $window->add($label);
+          $window->show_all;
+          print "GTK3_WINDOW_CREATED=OK\n";
+          my $gdk = $window->get_window;
+          die "GTK3_GDK_WINDOW=ERROR\n" unless $gdk;
+          print "GTK3_GDK_WINDOW=OK\n";
+          Glib::Timeout->add(800, sub { Gtk3->main_quit; return 0; });
+          Gtk3->main;
+          print "GTK3_EVENT_LOOP=OK\n";
+          $window->destroy;
+          PERL
+          timeout 30 perl "$WORK/gtk-window-test.pl"
+          echo 'GTK3_WINDOW_TEST=OK'
