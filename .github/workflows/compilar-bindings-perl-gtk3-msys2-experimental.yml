@@ -294,6 +294,13 @@ jobs:
           perl -MCPAN -e 'CPAN::Shell->notest("install","Encode::Locale")' > "$WORK/encode-locale-install.log" 2>&1
           tail -35 "$WORK/encode-locale-install.log"
           perl -MEncode::Locale -e 'print "ENCODE_LOCALE_LOAD=OK\\n"'
+      - name: 12c Instalar HTML Entities para GCstar
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
+          perl -MCPAN -e 'CPAN::Shell->notest("install","HTML::Entities")' > "$WORK/html-entities-install.log" 2>&1
+          tail -40 "$WORK/html-entities-install.log"
+          perl -MHTML::Entities -e 'print "HTML_ENTITIES_LOAD=OK\\n"'
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
