@@ -322,6 +322,7 @@ jobs:
           perl -MCPAN -e 'CPAN::Shell->notest("install","XML::Simple")' > "$WORK/xml-simple-install.log" 2>&1
           tail -40 "$WORK/xml-simple-install.log"
           perl -MXML::Simple -e 'print "XML_SIMPLE_LOAD=OK\\n"'
+      # Reejecutar arranque tras retirar import Gtk3::SimpleList no utilizado.
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
