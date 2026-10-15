@@ -418,6 +418,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          Add-Type -Path "$env:RUNNER_TEMP/gcstar-window-probe.cs"
+          Write-Output 'GCSTAR_WIN32_PROBE_LOADED=YES'
           $bash = 'D:\a\_temp\msys64\usr\bin\bash.exe'
           if (-not (Test-Path $bash)) { $bash = 'C:\msys64\usr\bin\bash.exe' }
           if (-not (Test-Path $bash)) { throw 'No se encontro bash MSYS2 para lanzar GCstar' }
