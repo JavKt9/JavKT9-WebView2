@@ -455,6 +455,31 @@ jobs:
             Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
             Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $p.Id } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
           }
+      - name: 12n Inventariar runtime para portable experimental
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          out="$WORK/portable-inventory"
+          mkdir -p "$out"
+          echo '=== Perl y GTK3 ==='
+          command -v perl
+          perl -e 'print "PERL_VERSION=$^V\\n"'
+          pkg-config --modversion gtk+-3.0
+          echo '=== Bibliotecas Perl compiladas ==='
+          perl -MConfig -e 'print "PERL_SITEARCH=$Config{sitearch}\\nPERL_SITELIB=$Config{sitelib}\\nPERL_ARCHLIB=$Config{archlib}\\n"'
+          echo '=== DLL nativas disponibles ==='
+          find /ucrt64/bin -maxdepth 1 -iname '*.dll' -printf '%f\\n' | sort > "$out/ucrt64-dlls.txt"
+          echo "UCRT64_DLL_COUNT=$(wc -l < "$out/ucrt64-dlls.txt")"
+          echo '=== Typelibs ==='
+          find /ucrt64/lib/girepository-1.0 -maxdepth 1 -iname '*.typelib' -printf '%f\\n' | sort > "$out/typelibs.txt"
+          echo "TYPELIB_COUNT=$(wc -l < "$out/typelibs.txt")"
+          echo '=== GTK3 resources ==='
+          for p in /ucrt64/share/glib-2.0/schemas /ucrt64/lib/gtk-3.0 /ucrt64/share/icons /ucrt64/share/themes; do
+            if [ -d "$p" ]; then echo "RESOURCE_PRESENT=$p"; else echo "RESOURCE_MISSING=$p"; fi
+          done
+          echo '=== Recursos GCstar originales ==='
+          echo "GCSTAR_RESOURCE_COUNT=$(find src/perl/share/gcstar -type f | wc -l)"
+          echo 'PORTABLE_INVENTORY=COMPLETE_NO_PACKAGE_YET'
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
