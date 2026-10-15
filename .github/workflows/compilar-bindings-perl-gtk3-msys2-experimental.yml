@@ -376,6 +376,7 @@ jobs:
           }
           tail -35 "$WORK/gtk3-simplelist-install.log"
           perl -MGtk3 -MGtk3::SimpleList -e 'print "GTK3_SIMPLELIST_LOAD=OK\\n"'
+      # Repetir prueba con Gtk3::SimpleList cargado explicitamente en GCBasicWidgets.
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
