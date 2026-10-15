@@ -413,7 +413,7 @@ jobs:
             }
           }
           '@ | Set-Content -Encoding utf8 "$env:RUNNER_TEMP/gcstar-window-probe.cs"
-          Add-Type -Path "$env:RUNNER_TEMP/gcstar-window-probe.cs" -OutputAssembly "$env:RUNNER_TEMP/gcstar-window-probe.exe" -OutputType ConsoleApplication
+          Add-Type -Path "$env:RUNNER_TEMP/gcstar-window-probe.cs"
       - name: 12m Verificar ventana real de GCstar en Windows
         shell: pwsh
         run: |
@@ -431,8 +431,8 @@ jobs:
             $pids = @($p.Id) + @($children | ForEach-Object ProcessId)
             $found = $false
             foreach ($pidCandidate in ($pids | Select-Object -Unique)) {
-              & "$env:RUNNER_TEMP/gcstar-window-probe.exe" "$pidCandidate"
-              if ($LASTEXITCODE -eq 0) { $found = $true }
+              [GcstarWindowProbe]::Main(@([string]$pidCandidate))
+              if ([Environment]::ExitCode -eq 0) { $found = $true }
             }
             if (-not $found) {
               if (Test-Path $appdataLog) { Get-Content $appdataLog -Tail 50 }
