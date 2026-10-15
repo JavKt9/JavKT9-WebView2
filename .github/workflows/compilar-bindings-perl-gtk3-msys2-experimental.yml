@@ -25,6 +25,7 @@ jobs:
             mingw-w64-ucrt-x86_64-cairo
             mingw-w64-ucrt-x86_64-glib2
             mingw-w64-ucrt-x86_64-gobject-introspection
+            mingw-w64-ucrt-x86_64-gtk3
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-make
@@ -228,3 +229,25 @@ jobs:
           test -n "$dll"
           ldd "$dll"
           echo 'GI_FINAL=OK'
+      - name: 10 Instalar bindings Gtk3 desde CPAN
+        run: |
+          set +e
+          export PATH="/ucrt64/bin:/usr/bin:$PATH" PERL_MM_USE_DEFAULT=1
+          echo "GTK_NATIVE_VERSION=$(pkg-config --modversion gtk+-3.0)"
+          perl -MCairo -MGlib -MCairo::GObject -MGlib::Object::Introspection -e 'print "GTK_PREREQUISITES=OK\n"'
+          timeout 900 perl -MCPAN -e 'CPAN::Shell->notest("install","Gtk3")' > "$WORK/gtk3-cpan.log" 2>&1
+          rc=$?
+          echo "GTK3_CPAN_EXIT=$rc"
+          echo '::group::Diagnostico instalacion Gtk3'
+          grep -nEi 'error:|undefined reference|cannot|failed|not found|Error [0-9]+' "$WORK/gtk3-cpan.log" | tail -90 | cut -c1-850 || true
+          echo '::endgroup::'
+          tail -90 "$WORK/gtk3-cpan.log" | cut -c1-900
+          perl -MGtk3 -e 'print "GTK3_PERL_LOAD=OK version=$Gtk3::VERSION\n"'
+          exit $?
+      - name: 11 Verificar GTK3 sin requerir escritorio interactivo
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          perl -MGtk3 -e 'print "GTK3_LOAD=OK\n"; print "GTK3_INIT_CHECK=".(Gtk3->init_check ? "OK" : "NO_DISPLAY")."\n";'
+          echo 'GTK3_MODULE_FINAL=OK'
+          echo 'NOTA: init_check=NO_DISPLAY no demuestra fallo de GTK; Windows Actions puede carecer de escritorio interactivo'
