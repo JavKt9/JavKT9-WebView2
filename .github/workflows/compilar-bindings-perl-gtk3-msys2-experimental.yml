@@ -330,6 +330,22 @@ jobs:
           perl -MCPAN -e 'CPAN::Shell->notest("install","Archive::Zip")' > "$WORK/archive-zip-install.log" 2>&1
           tail -40 "$WORK/archive-zip-install.log"
           perl -MArchive::Zip -e 'print "ARCHIVE_ZIP_LOAD=OK\\n"'
+      - name: 12h Auditar recursos GCstar ausentes
+        run: |
+          set -euo pipefail
+          echo '=== Rutas de recursos disponibles ==='
+          for dir in src/perl/share/gcstar src/perl/lib/gcstar /ucrt64/share/gcstar /usr/share/gcstar; do
+            if [ -d "$dir" ]; then
+              echo "RESOURCE_DIR_PRESENT=$dir"
+              find "$dir" -maxdepth 2 -type f | head -30 || true
+            else
+              echo "RESOURCE_DIR_MISSING=$dir"
+            fi
+          done
+          echo '=== Iconos disponibles en checkout ==='
+          find src -iname '*gcstar*png' -o -iname '*gcstar*ico' | head -30 || true
+          echo '=== Referencias a recursos ==='
+          grep -R -n -m 2 'gcstar_16x16.png' src/perl/bin src/perl/lib/gcstar | head -15 || true
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
