@@ -24,6 +24,7 @@ package GCBasicWidgets;
 
 use utf8;
 use Gtk3;
+use Gtk3::SimpleList;
 use Encode;
 
 use strict;
