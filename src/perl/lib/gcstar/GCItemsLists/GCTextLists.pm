@@ -343,7 +343,7 @@ use Gtk3;
 
     use base 'GCBaseTextList';
 
-    use Gtk3::SimpleList;
+    # Gtk3::SimpleList no se usa: la lista usa TreeStore y TreeView directamente.
     use GCUtils;
 
     sub new
