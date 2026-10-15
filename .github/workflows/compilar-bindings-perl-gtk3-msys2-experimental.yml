@@ -480,13 +480,22 @@ jobs:
           echo '=== Recursos GCstar originales ==='
           echo "GCSTAR_RESOURCE_COUNT=$(find src/perl/share/gcstar -type f | wc -l)"
           echo 'PORTABLE_INVENTORY=COMPLETE_NO_PACKAGE_YET'
-      - name: 12o Guardar inventario portable en artefacto
+      - name: 12o Preparar inventario en carpeta Windows
+        run: |
+          set -euo pipefail
+          artifact_dir="$(cygpath -u "$RUNNER_TEMP")/gcstar-runtime-inventario"
+          mkdir -p "$artifact_dir"
+          cp "$WORK/portable-inventory/ucrt64-dlls.txt" "$artifact_dir/"
+          cp "$WORK/portable-inventory/typelibs.txt" "$artifact_dir/"
+          test -s "$artifact_dir/ucrt64-dlls.txt"
+          test -s "$artifact_dir/typelibs.txt"
+          echo "INVENTORY_ARTIFACT_WINDOWS_PATH=$(cygpath -w "$artifact_dir")"
+          ls -lh "$artifact_dir"
+      - name: 12p Guardar inventario portable en artefacto
         uses: actions/upload-artifact@v4
         with:
           name: gcstar-runtime-inventario-experimental
-          path: |
-            /tmp/cairo-work/portable-inventory/ucrt64-dlls.txt
-            /tmp/cairo-work/portable-inventory/typelibs.txt
+          path: ${{ runner.temp }}/gcstar-runtime-inventario/
           if-no-files-found: error
           retention-days: 7
       - name: 13 Diagnosticar arranque GCstar completo
