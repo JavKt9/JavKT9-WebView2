@@ -2,7 +2,7 @@ name: Compilar bindings Perl GTK3 MSYS2 experimental
 on:
   push:
     branches: [experimento-gcstar-par-rc1]
-    paths: ['.github/workflows/compilar-bindings-perl-gtk3-msys2-experimental.yml', 'installer-experimental-gcstar/**']
+    paths: ['.github/workflows/compilar-bindings-perl-gtk3-msys2-experimental.yml', 'installer-experimental-gcstar/**', 'src/perl/bin/gcstar', 'src/perl/lib/gcstar/**']
   workflow_dispatch:
     inputs:
       subir_instalador:
