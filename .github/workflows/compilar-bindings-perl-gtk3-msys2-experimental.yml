@@ -561,16 +561,27 @@ jobs:
             Write-Output 'PORTABLE_GCSTAR_PROCESS=ALIVE_15S'
             Add-Type -Path "$env:RUNNER_TEMP/gcstar-window-probe.cs"
             Write-Output 'PORTABLE_WIN32_PROBE_LOADED=YES'
-            $probe = Join-Path $env:RUNNER_TEMP 'gcstar-window-probe.exe'
-            if (-not (Test-Path $probe)) {
-              Add-Type -Path "$env:RUNNER_TEMP/gcstar-window-probe.cs" -OutputAssembly $probe -OutputType ConsoleApplication
+            $visible = 0
+            $callback = [GcstarWindowProbe+EnumProc]{
+              param([IntPtr]$hwnd, [IntPtr]$unused)
+              [uint32]$windowPid = 0
+              [void][GcstarWindowProbe]::GetWindowThreadProcessId($hwnd, [ref]$windowPid)
+              if ($windowPid -eq [uint32]$p.Id -and [GcstarWindowProbe]::IsWindowVisible($hwnd)) {
+                $script:portableWindowCount++
+                $title = New-Object System.Text.StringBuilder 512
+                [void][GcstarWindowProbe]::GetWindowText($hwnd, $title, $title.Capacity)
+                Write-Output "PORTABLE_GCSTAR_WINDOW_TITLE=$($title.ToString())"
+              }
+              return $true
             }
-            & $probe "$($p.Id)"
-            if ($LASTEXITCODE -eq 0) {
+            $script:portableWindowCount = 0
+            [void][GcstarWindowProbe]::EnumWindows($callback, [IntPtr]::Zero)
+            Write-Output "PORTABLE_GCSTAR_VISIBLE_WINDOWS=$script:portableWindowCount"
+            if ($script:portableWindowCount -gt 0) {
               Write-Output 'PORTABLE_GCSTAR_GUI=VERIFIED_VISIBLE'
             } else {
               Write-Output 'PORTABLE_GCSTAR_GUI=NOT_VERIFIED'
-              throw "Portable window probe exit code: $LASTEXITCODE"
+              throw 'Portable process alive but no visible window for its PID'
             }
           } finally {
             if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
