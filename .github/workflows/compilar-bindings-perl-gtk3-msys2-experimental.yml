@@ -559,12 +559,18 @@ jobs:
             Start-Sleep -Seconds 15
             if ($p.HasExited) { throw "PORTABLE_GCSTAR_PROCESS=EXIT_$($p.ExitCode)" }
             Write-Output 'PORTABLE_GCSTAR_PROCESS=ALIVE_15S'
-            $wins = [GcstarWindowProbe]::GetVisibleWindowsForProcess($p.Id)
-            if ($wins.Count -gt 0) {
+            Add-Type -Path "$env:RUNNER_TEMP/gcstar-window-probe.cs"
+            Write-Output 'PORTABLE_WIN32_PROBE_LOADED=YES'
+            $probe = Join-Path $env:RUNNER_TEMP 'gcstar-window-probe.exe'
+            if (-not (Test-Path $probe)) {
+              Add-Type -Path "$env:RUNNER_TEMP/gcstar-window-probe.cs" -OutputAssembly $probe -OutputType ConsoleApplication
+            }
+            & $probe "$($p.Id)"
+            if ($LASTEXITCODE -eq 0) {
               Write-Output 'PORTABLE_GCSTAR_GUI=VERIFIED_VISIBLE'
             } else {
               Write-Output 'PORTABLE_GCSTAR_GUI=NOT_VERIFIED'
-              throw 'Portable process alive but GUI not verified'
+              throw "Portable window probe exit code: $LASTEXITCODE"
             }
           } finally {
             if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
