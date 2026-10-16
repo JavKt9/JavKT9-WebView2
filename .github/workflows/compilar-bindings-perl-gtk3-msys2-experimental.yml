@@ -781,7 +781,7 @@ jobs:
           Write-Output 'INSTALLER_SILENT_UNINSTALL=PASS'
           Write-Output 'INSTALLER_FULL_LIFECYCLE=PASS'
       - name: 12w Guardar instalador experimental descargable
-        if: github.event_name == 'workflow_dispatch' && inputs.subir_instalador == true
+        if: github.event_name == 'workflow_dispatch' && inputs.subir_instalador == true || (github.event_name == 'push' && contains(github.event.head_commit.message, '[subir-instalador-experimental]'))
         uses: actions/upload-artifact@v4
         with:
           name: JavKT9-GCstar-Experimental-NO-DISTRIBUIR
