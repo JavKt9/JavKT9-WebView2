@@ -707,12 +707,12 @@ jobs:
           } else { Write-Output "COLLECTION_GCSTAR_LOG_MISSING=$appDataLog" }
           if ($collectionExit -ne 0 -or -not (Test-Path $collection1)) { throw 'COLLECTION_INITIAL_SAVE_FAILED' }
           $firstXml = Get-Content -LiteralPath $collection1 -Raw
-          if ($firstXml -notmatch '<\\?xml' -or $firstXml -notmatch 'GCfilms') { throw 'COLLECTION_INITIAL_FORMAT_INVALID' }
+          if ($firstXml -notmatch '<\?xml' -or $firstXml -notmatch 'GCfilms') { throw 'COLLECTION_INITIAL_FORMAT_INVALID' }
           Write-Output 'COLLECTION_INITIAL_SAVE=PASS'
           & $perl $gcstar -x -c GCfilms -o $collection2 $collection1
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $collection2)) { throw 'COLLECTION_REOPEN_SAVE_FAILED' }
           $secondXml = Get-Content -LiteralPath $collection2 -Raw
-          if ($secondXml -notmatch '<\\?xml' -or $secondXml -notmatch 'GCfilms') { throw 'COLLECTION_REOPEN_FORMAT_INVALID' }
+          if ($secondXml -notmatch '<\?xml' -or $secondXml -notmatch 'GCfilms') { throw 'COLLECTION_REOPEN_FORMAT_INVALID' }
           Write-Output 'COLLECTION_REOPEN_SAVE=PASS'
           $process = Start-Process -FilePath $perl -ArgumentList ('"{0}"' -f $gcstar) -WorkingDirectory (Join-Path $target 'app') -PassThru -WindowStyle Hidden
           try {
