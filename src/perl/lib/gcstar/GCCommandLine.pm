@@ -313,10 +313,16 @@ use strict;
         $self->{data}->{backend} = new GCBackend::GCBeXmlParser($self->{parent})
             if ! $self->{data}->{backend};
         $self->{data}->{options}->useRelativePaths(0) if $self->{useStdOut};
-        $self->{data}->save;
+        my ($saved, $saveError) = $self->{data}->save;
+        if (!$saved)
+        {
+            my $details = ref($saveError) eq 'ARRAY' ? join(': ', @$saveError) : ($saveError // 'unknown error');
+            $self->leave("Collection save failed: $details");
+        }
         $self->{data}->{options}->useRelativePaths($previousRelativePaths);
         $self->{data}->{options}->file($previousFile);
-        open IN, localName($self->{file});
+        open IN, '<', localName($self->{file})
+            or $self->leave("Collection output missing or unreadable: $self->{file}: $!");
         if ($self->{useStdOut})
         {
             print $_ while (<IN>);
