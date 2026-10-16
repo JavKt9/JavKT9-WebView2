@@ -468,10 +468,10 @@ jobs:
           echo '=== Bibliotecas Perl compiladas ==='
           perl -MConfig -e 'print "PERL_SITEARCH=$Config{sitearch}\\nPERL_SITELIB=$Config{sitelib}\\nPERL_ARCHLIB=$Config{archlib}\\n"'
           echo '=== DLL nativas disponibles ==='
-          find /ucrt64/bin -maxdepth 1 -iname '*.dll' -printf '%f\\n' | sort > "$out/ucrt64-dlls.txt"
+          find /ucrt64/bin -maxdepth 1 -type f -iname '*.dll' -print | sed 's@.*/@@' | sort > "$out/ucrt64-dlls.txt"
           echo "UCRT64_DLL_COUNT=$(wc -l < "$out/ucrt64-dlls.txt")"
           echo '=== Typelibs ==='
-          find /ucrt64/lib/girepository-1.0 -maxdepth 1 -iname '*.typelib' -printf '%f\\n' | sort > "$out/typelibs.txt"
+          find /ucrt64/lib/girepository-1.0 -maxdepth 1 -type f -iname '*.typelib' -print | sed 's@.*/@@' | sort > "$out/typelibs.txt"
           echo "TYPELIB_COUNT=$(wc -l < "$out/typelibs.txt")"
           echo '=== GTK3 resources ==='
           for p in /ucrt64/share/glib-2.0/schemas /ucrt64/lib/gtk-3.0 /ucrt64/share/icons /ucrt64/share/themes; do
