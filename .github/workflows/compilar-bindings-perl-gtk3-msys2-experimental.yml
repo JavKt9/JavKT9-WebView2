@@ -2,7 +2,7 @@ name: Compilar bindings Perl GTK3 MSYS2 experimental
 on:
   push:
     branches: [experimento-gcstar-par-rc1]
-    paths: ['.github/workflows/compilar-bindings-perl-gtk3-msys2-experimental.yml']
+    paths: ['.github/workflows/compilar-bindings-perl-gtk3-msys2-experimental.yml', 'installer-experimental-gcstar/**']
   workflow_dispatch:
 permissions:
   contents: read
@@ -631,6 +631,25 @@ jobs:
           foreach ($line in $bad) { Write-Output "PORTABLE_EXTERNAL_PERL_PATH=$line" }
           if ($bad.Count -gt 0) { throw 'PORTABLE_PERL_PATH_ISOLATION=FAILED' }
           Write-Output 'PORTABLE_PERL_PATH_ISOLATION=PASS'
+      - name: 12u Compilar instalador Inno experimental sin publicar
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $portable = Join-Path $env:RUNNER_TEMP 'javkt9-portable-experimental'
+          $installerDir = Join-Path $env:GITHUB_WORKSPACE 'installer-experimental-gcstar'
+          $payload = Join-Path $installerDir 'Payload'
+          if (Test-Path $payload) { Remove-Item $payload -Recurse -Force }
+          New-Item -ItemType Directory -Path $payload | Out-Null
+          Copy-Item -Path (Join-Path $portable '*') -Destination $payload -Recurse -Force
+          $iscc = @('C:\Program Files (x86)\Inno Setup 6\ISCC.exe', 'C:\Program Files\Inno Setup 6\ISCC.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw 'INNO_SETUP_COMPILER_NOT_FOUND' }
+          & $iscc (Join-Path $installerDir 'JavKT9-GCstar-Portable.iss')
+          if ($LASTEXITCODE -ne 0) { throw "INNO_SETUP_COMPILE_FAILED=$LASTEXITCODE" }
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'output-gcstar-experimental/JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe'
+          if (-not (Test-Path $exe)) { throw 'INNO_SETUP_OUTPUT_MISSING' }
+          Write-Output "INNO_EXPERIMENTAL_COMPILE=PASS"
+          Write-Output "INNO_EXPERIMENTAL_BYTES=$((Get-Item $exe).Length)"
+          Write-Output 'INNO_EXPERIMENTAL_RELEASE=NOT_PUBLISHED'
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
