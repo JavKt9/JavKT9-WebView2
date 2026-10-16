@@ -10,6 +10,7 @@ on:
         type: boolean
         required: false
         default: false
+# Artifact upload requested explicitly by tagged experimental push; never publish a release.
 permissions:
   contents: read
 env:
