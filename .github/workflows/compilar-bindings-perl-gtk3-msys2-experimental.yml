@@ -583,6 +583,19 @@ jobs:
               Write-Output 'PORTABLE_GCSTAR_GUI=NOT_VERIFIED'
               throw 'Portable process alive but no visible window for its PID'
             }
+            # Detectar DLL cargadas fuera del paquete. No equivale a probar Windows limpio,
+            # pero evita falsos positivos cuando PATH esta aislado y MSYS2 sigue instalado.
+            $loaded = @(Get-Process -Id $p.Id -Module -ErrorAction Stop | ForEach-Object { $_.FileName })
+            $portableRoot = [IO.Path]::GetFullPath($portable).TrimEnd('\') + '\'
+            $windowsRoot = [IO.Path]::GetFullPath($env:SystemRoot).TrimEnd('\') + '\'
+            $foreign = @($loaded | Where-Object {
+              $_ -and -not $_.StartsWith($portableRoot, [StringComparison]::OrdinalIgnoreCase) -and
+              -not $_.StartsWith($windowsRoot, [StringComparison]::OrdinalIgnoreCase)
+            })
+            Write-Output "PORTABLE_LOADED_MODULE_COUNT=$($loaded.Count)"
+            foreach ($module in $foreign) { Write-Output "PORTABLE_FOREIGN_MODULE=$module" }
+            if ($foreign.Count -gt 0) { throw 'PORTABLE_DEPENDENCY_ISOLATION=FAILED_FOREIGN_MODULES' }
+            Write-Output 'PORTABLE_DEPENDENCY_ISOLATION=PASS_LOADED_MODULES'
           } finally {
             if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
           }
