@@ -689,7 +689,16 @@ jobs:
           $collection1 = Join-Path $fixtureDir 'films-first.gcs'
           $collection2 = Join-Path $fixtureDir 'films-reopened.gcs'
           & $perl $gcstar -x -c GCfilms -o $collection1
-          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $collection1)) { throw 'COLLECTION_INITIAL_SAVE_FAILED' }
+          $collectionExit = $LASTEXITCODE
+          Write-Output "COLLECTION_INITIAL_EXIT_CODE=$collectionExit"
+          Write-Output "COLLECTION_INITIAL_FILE_EXISTS=$(Test-Path $collection1)"
+          $appDataLog = Join-Path $env:APPDATA 'JavKT9-GCstar-Experimental-Test/gcstar.log'
+          if (Test-Path $appDataLog) {
+            Write-Output 'COLLECTION_GCSTAR_LOG_BEGIN'
+            Get-Content -LiteralPath $appDataLog -Tail 100
+            Write-Output 'COLLECTION_GCSTAR_LOG_END'
+          } else { Write-Output "COLLECTION_GCSTAR_LOG_MISSING=$appDataLog" }
+          if ($collectionExit -ne 0 -or -not (Test-Path $collection1)) { throw 'COLLECTION_INITIAL_SAVE_FAILED' }
           $firstXml = Get-Content -LiteralPath $collection1 -Raw
           if ($firstXml -notmatch '<\\?xml' -or $firstXml -notmatch 'GCfilms') { throw 'COLLECTION_INITIAL_FORMAT_INVALID' }
           Write-Output 'COLLECTION_INITIAL_SAVE=PASS'
