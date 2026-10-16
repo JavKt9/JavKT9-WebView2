@@ -669,6 +669,11 @@ jobs:
           $perl = Join-Path $target 'bin/perl.exe'
           $gcstar = Join-Path $target 'app/bin/gcstar'
           $uninstaller = Join-Path $target 'unins000.exe'
+          $launcher = Join-Path $target 'JavKT9-Experimental.cmd'
+          if (-not (Test-Path $launcher)) { throw 'INSTALLED_LAUNCHER_MISSING' }
+          $launcherText = Get-Content -Path $launcher -Raw
+          if ($launcherText -notmatch 'JAVKT9_PROFILE_DIR=JavKT9-081-RC1-Experimental') { throw 'INSTALLED_LAUNCHER_PROFILE_NOT_ISOLATED' }
+          Write-Output 'INSTALLED_LAUNCHER_PROFILE=ISOLATED'
           foreach ($required in @($perl,$gcstar,$uninstaller)) { if (-not (Test-Path $required)) { throw "INSTALLER_MISSING_FILE=$required" } }
           Write-Output 'INSTALLER_SILENT_INSTALL=PASS'
           $env:PATH = "$target\\bin;$env:SystemRoot\\System32;$env:SystemRoot"
