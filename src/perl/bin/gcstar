@@ -60,7 +60,7 @@ if (exists $ENV{PAR_TEMP})
 # For win32, redirect all the output to files
 if ($^O =~ /win32/i)
 {
-    my $logdir = $ENV{'APPDATA'}.'/JavKT9-081-RC1-Publica-Publica';
+    my $logdir = $ENV{'APPDATA'}.'/'.($ENV{'JAVKT9_PROFILE_DIR'} || 'JavKT9-081-RC1-Publica-Publica');
 	$logdir =~ s/\\/\//g;
     mkpath $logdir;
     close(STDOUT);
@@ -75,10 +75,10 @@ my $home = $ENV{'HOME'};
 $home = $ENV{'APPDATA'} if ($^O =~ /win32/i);
 $home =~ s/\\/\//g if ($^O =~ /win32/i);
 
-$ENV{XDG_CONFIG_HOME} = $home.'/JavKT9-081-RC1-Publica-Publica/config' if ($^O =~ /win32/i);
+$ENV{XDG_CONFIG_HOME} = $home.'/'.($ENV{'JAVKT9_PROFILE_DIR'} || 'JavKT9-081-RC1-Publica-Publica').'/config' if ($^O =~ /win32/i);
 $ENV{XDG_CONFIG_HOME} = $home.'/.config' if ! exists $ENV{XDG_CONFIG_HOME};
 
-$ENV{XDG_DATA_HOME} = $home.'/JavKT9-081-RC1-Publica-Publica/data' if ($^O =~ /win32/i);
+$ENV{XDG_DATA_HOME} = $home.'/'.($ENV{'JAVKT9_PROFILE_DIR'} || 'JavKT9-081-RC1-Publica-Publica').'/data' if ($^O =~ /win32/i);
 $ENV{XDG_DATA_HOME} = $home.'/.local/share' if ! exists $ENV{XDG_DATA_HOME};
 
 $ENV{GCS_CONFIG_HOME} = $ENV{XDG_CONFIG_HOME}.'/gcstar';
