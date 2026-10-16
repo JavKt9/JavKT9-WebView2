@@ -650,6 +650,40 @@ jobs:
           Write-Output "INNO_EXPERIMENTAL_COMPILE=PASS"
           Write-Output "INNO_EXPERIMENTAL_BYTES=$((Get-Item $exe).Length)"
           Write-Output 'INNO_EXPERIMENTAL_RELEASE=NOT_PUBLISHED'
+      - name: 12v Instalar ejecutar y desinstalar setup experimental
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'output-gcstar-experimental/JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe'
+          $target = Join-Path $env:RUNNER_TEMP 'javkt9-installed-smoke'
+          if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+          $install = Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$target") -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "INSTALLER_SILENT_INSTALL_FAILED=$($install.ExitCode)" }
+          $perl = Join-Path $target 'bin/perl.exe'
+          $gcstar = Join-Path $target 'app/bin/gcstar'
+          $uninstaller = Join-Path $target 'unins000.exe'
+          foreach ($required in @($perl,$gcstar,$uninstaller)) { if (-not (Test-Path $required)) { throw "INSTALLER_MISSING_FILE=$required" } }
+          Write-Output 'INSTALLER_SILENT_INSTALL=PASS'
+          $env:PATH = "$target\\bin;$env:SystemRoot\\System32;$env:SystemRoot"
+          $env:PERL5LIB = "$target\\app\\lib;$target\\lib\\perl5\\site_perl;$target\\lib\\perl5\\vendor_perl;$target\\lib\\perl5\\core_perl"
+          $env:GI_TYPELIB_PATH = "$target\\lib\\girepository-1.0"
+          $env:XDG_DATA_DIRS = "$target\\share"
+          & $perl -MGlib -MGtk3 -e 'print "INSTALLED_GTK3_LOAD=PASS\\n"'
+          if ($LASTEXITCODE -ne 0) { throw 'INSTALLED_GTK3_LOAD=FAIL' }
+          $process = Start-Process -FilePath $perl -ArgumentList ('"{0}"' -f $gcstar) -WorkingDirectory (Join-Path $target 'app') -PassThru -WindowStyle Hidden
+          try {
+            Start-Sleep -Seconds 12
+            $process.Refresh()
+            if ($process.HasExited) { throw "INSTALLED_GCSTAR_EARLY_EXIT=$($process.ExitCode)" }
+            Write-Output 'INSTALLED_GCSTAR_PROCESS=ALIVE_12S'
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+          }
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "INSTALLER_SILENT_UNINSTALL_FAILED=$($uninstall.ExitCode)" }
+          if (Test-Path $perl) { throw 'INSTALLER_UNINSTALL_LEFT_PERL_EXECUTABLE' }
+          Write-Output 'INSTALLER_SILENT_UNINSTALL=PASS'
+          Write-Output 'INSTALLER_FULL_LIFECYCLE=PASS'
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
