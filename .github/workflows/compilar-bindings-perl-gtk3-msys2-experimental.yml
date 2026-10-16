@@ -787,7 +787,7 @@ jobs:
           name: JavKT9-GCstar-Experimental-NO-DISTRIBUIR
           path: output-gcstar-experimental/JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 1
           compression-level: 0
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
