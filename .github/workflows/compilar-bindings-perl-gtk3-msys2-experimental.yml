@@ -684,6 +684,14 @@ jobs:
           if (Test-Path $perl) { throw 'INSTALLER_UNINSTALL_LEFT_PERL_EXECUTABLE' }
           Write-Output 'INSTALLER_SILENT_UNINSTALL=PASS'
           Write-Output 'INSTALLER_FULL_LIFECYCLE=PASS'
+      - name: 12w Guardar instalador experimental descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: JavKT9-GCstar-Experimental-NO-DISTRIBUIR
+          path: output-gcstar-experimental/JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
