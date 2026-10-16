@@ -334,7 +334,12 @@ use strict;
     sub open
     {
         my ($self, $file) = @_;
-        $self->{data}->load($file, undef, undef, 1);
+        my ($loaded, $loadError) = $self->{data}->load($file, undef, undef, 1);
+        if (!$loaded)
+        {
+            my $details = ref($loadError) eq 'ARRAY' ? join(': ', @$loadError) : ($loadError // 'unknown error');
+            $self->leave("Collection open failed: $details");
+        }
         $self->{original} = $file;
     }
 
