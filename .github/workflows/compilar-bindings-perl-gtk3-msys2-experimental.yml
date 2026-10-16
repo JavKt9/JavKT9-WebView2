@@ -599,6 +599,38 @@ jobs:
           } finally {
             if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
           }
+      - name: 12t Auditar referencias MSYS2 y rutas absolutas en staging
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $portable = Join-Path $env:RUNNER_TEMP 'javkt9-portable-experimental'
+          $perl = Join-Path $portable 'bin/perl.exe'
+          $env:PATH = "$portable\\bin;$env:SystemRoot\\System32;$env:SystemRoot"
+          $env:PERL5LIB = "$portable\\app\\lib;$portable\\lib\\perl5\\site_perl;$portable\\lib\\perl5\\vendor_perl;$portable\\lib\\perl5\\core_perl"
+          $env:GI_TYPELIB_PATH = "$portable\\lib\\girepository-1.0"
+          $env:XDG_DATA_DIRS = "$portable\\share"
+          $code = @'
+          use strict;
+          use warnings;
+          use Config;
+          use Glib;
+          use Gtk3;
+          print "PORTABLE_PERL_EXECUTABLE=$^X\\n";
+          print "PORTABLE_PERL_ARCHLIB=$Config{archlib}\\n";
+          print "PORTABLE_PERL_PRIVLIB=$Config{privlib}\\n";
+          print "PORTABLE_PERL_SITEARCH=$Config{sitearch}\\n";
+          print "PORTABLE_PERL_SITELIB=$Config{sitelib}\\n";
+          print "PORTABLE_INC=$_\\n" for @INC;
+          '@
+          $probe = Join-Path $env:RUNNER_TEMP 'portable-path-probe.pl'
+          Set-Content -Path $probe -Value $code -Encoding ascii
+          $lines = @(& $perl $probe 2>&1)
+          if ($LASTEXITCODE -ne 0) { throw "PORTABLE_PATH_PROBE_FAILED=$LASTEXITCODE" }
+          $lines | ForEach-Object { Write-Output $_ }
+          $bad = @($lines | Where-Object { $_ -match '^PORTABLE_(?:PERL_(?:ARCHLIB|PRIVLIB|SITEARCH|SITELIB)|INC)=' -and $_ -match '(?i)(?:[A-Z]:[\\/](?:msys64|a[\\/]_temp[\\/]msys64)|/ucrt64/|/usr/)' })
+          foreach ($line in $bad) { Write-Output "PORTABLE_EXTERNAL_PERL_PATH=$line" }
+          if ($bad.Count -gt 0) { throw 'PORTABLE_PERL_PATH_ISOLATION=FAILED' }
+          Write-Output 'PORTABLE_PERL_PATH_ISOLATION=PASS'
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
