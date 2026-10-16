@@ -523,6 +523,26 @@ jobs:
           echo "PORTABLE_STAGING_PATH=$(cygpath -w "$portable")"
           du -sh "$portable"
           echo "PORTABLE_STAGING_FILES=$(find "$portable" -type f | wc -l)"
+      - name: 12r Probar Perl empaquetado con PATH aislado
+        shell: pwsh
+        run: |
+          $portable = Join-Path $env:RUNNER_TEMP 'javkt9-portable-experimental'
+          $perl = Join-Path $portable 'bin/perl.exe'
+          $previousPath = $env:PATH
+          try {
+            $env:PATH = "$portable\bin;$env:SystemRoot\System32;$env:SystemRoot"
+            $env:PERL5LIB = "$portable\app\lib;$portable\lib\perl5\site_perl;$portable\lib\perl5\vendor_perl;$portable\lib\perl5\core_perl"
+            $env:GI_TYPELIB_PATH = "$portable\lib\girepository-1.0"
+            $env:XDG_DATA_DIRS = "$portable\share"
+            & $perl -e 'print "PORTABLE_PERL_EXEC=OK\\n"'
+            if ($LASTEXITCODE -ne 0) { throw 'PORTABLE_PERL_EXEC=FAILED' }
+            & $perl -MGlib -e 'print "PORTABLE_GLIB_LOAD=OK\\n"'
+            if ($LASTEXITCODE -ne 0) { throw 'PORTABLE_GLIB_LOAD=FAILED' }
+            & $perl -MGtk3 -e 'print "PORTABLE_GTK3_LOAD=OK\\n"'
+            if ($LASTEXITCODE -ne 0) { throw 'PORTABLE_GTK3_LOAD=FAILED' }
+          } finally {
+            $env:PATH = $previousPath
+          }
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
