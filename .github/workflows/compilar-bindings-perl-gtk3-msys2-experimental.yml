@@ -690,6 +690,13 @@ jobs:
           $collection2 = Join-Path $fixtureDir 'films-reopened.gcs'
           & $perl $gcstar -x -c GCfilms -o $collection1
           $collectionExit = $LASTEXITCODE
+          $gcstarLog = Join-Path $env:APPDATA 'JavKT9-GCstar-Experimental-Test/gcstar.log'
+          if (Test-Path $gcstarLog) {
+            $diagnostic = Get-Content -LiteralPath $gcstarLog -Raw
+            Write-Output "COLLECTION_LOG_HAS_MISSING_JSON=$($diagnostic -match 'Can.t locate JSON.pm')"
+            Write-Output "COLLECTION_LOG_HAS_PLUGIN_ERRORS=$($diagnostic -match 'Plugins : loading error')"
+          }
+          Write-Output "COLLECTION_OUTPUT_PATH=$collection1"
           Write-Output "COLLECTION_INITIAL_EXIT_CODE=$collectionExit"
           Write-Output "COLLECTION_INITIAL_FILE_EXISTS=$(Test-Path $collection1)"
           $appDataLog = Join-Path $env:APPDATA 'JavKT9-GCstar-Experimental-Test/gcstar.log'
