@@ -682,6 +682,34 @@ jobs:
             $process.Refresh()
             if ($process.HasExited) { throw "INSTALLED_GCSTAR_EARLY_EXIT=$($process.ExitCode)" }
             Write-Output 'INSTALLED_GCSTAR_PROCESS=ALIVE_12S'
+            Add-Type -Path "$env:RUNNER_TEMP/gcstar-window-probe.cs"
+            $script:installedWindowCount = 0
+            $callback = [GcstarWindowProbe+EnumProc]{
+              param([IntPtr]$hwnd, [IntPtr]$unused)
+              [uint32]$windowPid = 0
+              [void][GcstarWindowProbe]::GetWindowThreadProcessId($hwnd, [ref]$windowPid)
+              if ($windowPid -eq [uint32]$process.Id -and [GcstarWindowProbe]::IsWindowVisible($hwnd)) {
+                $script:installedWindowCount++
+                $title = New-Object System.Text.StringBuilder 512
+                [void][GcstarWindowProbe]::GetWindowText($hwnd, $title, $title.Capacity)
+                Write-Output "INSTALLED_GCSTAR_WINDOW_TITLE=$($title.ToString())"
+              }
+              return $true
+            }
+            [void][GcstarWindowProbe]::EnumWindows($callback, [IntPtr]::Zero)
+            Write-Output "INSTALLED_GCSTAR_VISIBLE_WINDOWS=$script:installedWindowCount"
+            if ($script:installedWindowCount -lt 1) { throw 'INSTALLED_GCSTAR_GUI_NOT_VISIBLE' }
+            Write-Output 'INSTALLED_GCSTAR_GUI=VERIFIED_VISIBLE'
+            $loaded = @(Get-Process -Id $process.Id -Module -ErrorAction Stop | ForEach-Object { $_.FileName })
+            $installedRoot = [IO.Path]::GetFullPath($target).TrimEnd('\\') + '\\'
+            $windowsRoot = [IO.Path]::GetFullPath($env:SystemRoot).TrimEnd('\\') + '\\'
+            $foreign = @($loaded | Where-Object {
+              $_ -and -not $_.StartsWith($installedRoot, [StringComparison]::OrdinalIgnoreCase) -and
+              -not $_.StartsWith($windowsRoot, [StringComparison]::OrdinalIgnoreCase)
+            })
+            foreach ($module in $foreign) { Write-Output "INSTALLED_FOREIGN_MODULE=$module" }
+            if ($foreign.Count -gt 0) { throw 'INSTALLED_DEPENDENCY_ISOLATION_FAILED' }
+            Write-Output 'INSTALLED_DEPENDENCY_ISOLATION=PASS'
           } finally {
             if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
           }
