@@ -543,6 +543,32 @@ jobs:
           } finally {
             $env:PATH = $previousPath
           }
+      - name: 12s Arranque GCstar desde staging aislado
+        shell: pwsh
+        run: |
+          $portable = Join-Path $env:RUNNER_TEMP 'javkt9-portable-experimental'
+          $perl = Join-Path $portable 'bin/perl.exe'
+          $entry = Join-Path $portable 'app/bin/gcstar'
+          $env:PATH = "$portable\bin;$env:SystemRoot\System32;$env:SystemRoot"
+          $env:PERL5LIB = "$portable\app\lib;$portable\lib\perl5\site_perl;$portable\lib\perl5\vendor_perl;$portable\lib\perl5\core_perl"
+          $env:GI_TYPELIB_PATH = "$portable\lib\girepository-1.0"
+          $env:XDG_DATA_DIRS = "$portable\share"
+          $env:GCS_PROFILING = '1'
+          $p = Start-Process -FilePath $perl -ArgumentList @($entry) -WorkingDirectory (Join-Path $portable 'app') -PassThru -WindowStyle Hidden
+          try {
+            Start-Sleep -Seconds 15
+            if ($p.HasExited) { throw "PORTABLE_GCSTAR_PROCESS=EXIT_$($p.ExitCode)" }
+            Write-Output 'PORTABLE_GCSTAR_PROCESS=ALIVE_15S'
+            $wins = [GcstarWindowProbe]::GetVisibleWindowsForProcess($p.Id)
+            if ($wins.Count -gt 0) {
+              Write-Output 'PORTABLE_GCSTAR_GUI=VERIFIED_VISIBLE'
+            } else {
+              Write-Output 'PORTABLE_GCSTAR_GUI=NOT_VERIFIED'
+              throw 'Portable process alive but GUI not verified'
+            }
+          } finally {
+            if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+          }
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
