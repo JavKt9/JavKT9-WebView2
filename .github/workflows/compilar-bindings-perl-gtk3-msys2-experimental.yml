@@ -701,8 +701,8 @@ jobs:
             if ($script:installedWindowCount -lt 1) { throw 'INSTALLED_GCSTAR_GUI_NOT_VISIBLE' }
             Write-Output 'INSTALLED_GCSTAR_GUI=VERIFIED_VISIBLE'
             $loaded = @(Get-Process -Id $process.Id -Module -ErrorAction Stop | ForEach-Object { $_.FileName })
-            $installedRoot = [IO.Path]::GetFullPath($target).TrimEnd('\\') + '\\'
-            $windowsRoot = [IO.Path]::GetFullPath($env:SystemRoot).TrimEnd('\\') + '\\'
+            $installedRoot = [IO.Path]::GetFullPath($target).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+            $windowsRoot = [IO.Path]::GetFullPath($env:SystemRoot).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
             $foreign = @($loaded | Where-Object {
               $_ -and -not $_.StartsWith($installedRoot, [StringComparison]::OrdinalIgnoreCase) -and
               -not $_.StartsWith($windowsRoot, [StringComparison]::OrdinalIgnoreCase)
