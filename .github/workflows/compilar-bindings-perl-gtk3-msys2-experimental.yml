@@ -683,6 +683,21 @@ jobs:
           & $perl -MGlib -MGtk3 -e 'print "INSTALLED_GTK3_LOAD=PASS\\n"'
           if ($LASTEXITCODE -ne 0) { throw 'INSTALLED_GTK3_LOAD=FAIL' }
           $env:JAVKT9_PROFILE_DIR = 'JavKT9-GCstar-Experimental-Test'
+          # Empty collection round-trip through GCstar's own non-interactive loader/saver.
+          $fixtureDir = Join-Path $env:RUNNER_TEMP 'javkt9-collection-roundtrip'
+          New-Item -ItemType Directory -Force -Path $fixtureDir | Out-Null
+          $collection1 = Join-Path $fixtureDir 'films-first.gcs'
+          $collection2 = Join-Path $fixtureDir 'films-reopened.gcs'
+          & $perl $gcstar -x -c GCfilms -o $collection1
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $collection1)) { throw 'COLLECTION_INITIAL_SAVE_FAILED' }
+          $firstXml = Get-Content -LiteralPath $collection1 -Raw
+          if ($firstXml -notmatch '<\\?xml' -or $firstXml -notmatch 'GCfilms') { throw 'COLLECTION_INITIAL_FORMAT_INVALID' }
+          Write-Output 'COLLECTION_INITIAL_SAVE=PASS'
+          & $perl $gcstar -x -c GCfilms -o $collection2 $collection1
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $collection2)) { throw 'COLLECTION_REOPEN_SAVE_FAILED' }
+          $secondXml = Get-Content -LiteralPath $collection2 -Raw
+          if ($secondXml -notmatch '<\\?xml' -or $secondXml -notmatch 'GCfilms') { throw 'COLLECTION_REOPEN_FORMAT_INVALID' }
+          Write-Output 'COLLECTION_REOPEN_SAVE=PASS'
           $process = Start-Process -FilePath $perl -ArgumentList ('"{0}"' -f $gcstar) -WorkingDirectory (Join-Path $target 'app') -PassThru -WindowStyle Hidden
           try {
             Start-Sleep -Seconds 12
