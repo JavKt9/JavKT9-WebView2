@@ -50,6 +50,7 @@ use strict;
         $self->{imagesToBeRemoved} = [];
         $self->{imagesToBeAdded} = [];
         $self->{loaded} = {};
+        $self->{itemArray} = [];
 
         $self->{currentItem} = -1;
         $self->{hasBeenDeleted} = 0;
