@@ -357,7 +357,22 @@ jobs:
           set -euo pipefail
           export PATH="/ucrt64/bin:/usr/bin:$PATH"
           mkdir -p "$WORK/gcstar-upstream"
-          curl -fL --retry 3 --connect-timeout 20 -o "$WORK/gcstar-1.8.1.tar.gz" "https://gitlab.com/GCstar/GCstar/-/archive/v1.8.1/GCstar-v1.8.1.tar.gz"
+          upstream_urls=(
+            "https://gitlab.com/GCstar/GCstar/-/archive/v1.8.1/GCstar-v1.8.1.tar.gz"
+            "https://gitlab.com/GCstar/GCstar/-/archive/v1.8.1/GCstar-v1.8.1.tar.gz?ref_type=tags"
+          )
+          downloaded=0
+          for url in "${upstream_urls[@]}"; do
+            if curl -fL --retry 3 --retry-all-errors --retry-delay 3 --connect-timeout 20 --max-time 180 -o "$WORK/gcstar-1.8.1.tar.gz" "$url" && tar -tzf "$WORK/gcstar-1.8.1.tar.gz" >/dev/null; then
+              downloaded=1
+              break
+            fi
+            echo 'GCSTAR_UPSTREAM_DOWNLOAD_RETRY_OR_FALLBACK'
+          done
+          if [ "$downloaded" -ne 1 ]; then
+            echo 'GCSTAR_UPSTREAM_UNAVAILABLE=HTTP_ERROR'
+            exit 1
+          fi
           tar -xzf "$WORK/gcstar-1.8.1.tar.gz" -C "$WORK/gcstar-upstream"
           upstream="$(find "$WORK/gcstar-upstream" -type f -path '*/share/gcstar/icons/gcstar_16x16.png' -print -quit)"
           if [ -z "$upstream" ]; then
