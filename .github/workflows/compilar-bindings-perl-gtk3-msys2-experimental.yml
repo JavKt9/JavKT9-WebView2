@@ -725,7 +725,16 @@ jobs:
           if ($firstXml -notmatch '<\?xml' -or $firstXml -notmatch 'GCfilms') { throw 'COLLECTION_INITIAL_FORMAT_INVALID' }
           Write-Output 'COLLECTION_INITIAL_SAVE=PASS'
           & $perl $gcstar -x -c GCfilms -o $collection2 $collection1
-          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $collection2)) { throw 'COLLECTION_REOPEN_SAVE_FAILED' }
+          $reopenExit = $LASTEXITCODE
+          Write-Output "COLLECTION_REOPEN_EXIT_CODE=$reopenExit"
+          Write-Output "COLLECTION_REOPEN_FILE_EXISTS=$(Test-Path $collection2)"
+          $reopenLog = Join-Path $env:APPDATA 'JavKT9-GCstar-Experimental-Test/gcstar.log'
+          if (Test-Path $reopenLog) {
+            Write-Output 'COLLECTION_REOPEN_LOG_BEGIN'
+            Get-Content -LiteralPath $reopenLog -Tail 55
+            Write-Output 'COLLECTION_REOPEN_LOG_END'
+          }
+          if ($reopenExit -ne 0 -or -not (Test-Path $collection2)) { throw 'COLLECTION_REOPEN_SAVE_FAILED' }
           $secondXml = Get-Content -LiteralPath $collection2 -Raw
           if ($secondXml -notmatch '<\?xml' -or $secondXml -notmatch 'GCfilms') { throw 'COLLECTION_REOPEN_FORMAT_INVALID' }
           Write-Output 'COLLECTION_REOPEN_SAVE=PASS'
