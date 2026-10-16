@@ -22,9 +22,11 @@ DisableProgramGroupPage=yes
 
 [Files]
 Source: "Payload\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "JavKT9-Experimental.cmd"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\\JavKT9 GCstar Experimental"; Filename: "{app}\\bin\\perl.exe"; Parameters: """{app}\\app\\bin\\gcstar"""; WorkingDir: "{app}\\app"
+; Launcher sets an isolated profile without modifying the stable RC1 environment.
+Name: "{autoprograms}\\JavKT9-081-RC1 Experimental"; Filename: "{app}\\JavKT9-Experimental.cmd"; WorkingDir: "{app}\\app"
 
 [Run]
 ; No iniciar automáticamente durante pruebas silenciosas.
