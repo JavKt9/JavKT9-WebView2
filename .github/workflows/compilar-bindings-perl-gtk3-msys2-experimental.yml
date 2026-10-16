@@ -499,6 +499,30 @@ jobs:
           echo '=== INVENTARIO TYPELIB GTK3 ==='
           cat "$WORK/portable-inventory/typelibs.txt"
           echo "PORTABLE_INVENTORY_LOGGED=YES"
+      - name: 12q Construir estructura portable experimental sin publicar
+        run: |
+          set -euo pipefail
+          export PATH="/ucrt64/bin:/usr/bin:$PATH"
+          portable="$(cygpath -u "$RUNNER_TEMP")/javkt9-portable-experimental"
+          mkdir -p "$portable"/{bin,lib,share,app}
+          cp -R src/perl/bin src/perl/lib src/perl/share "$portable/app/"
+          cp /ucrt64/bin/perl.exe "$portable/bin/"
+          cp /ucrt64/bin/*.dll "$portable/bin/"
+          cp -R /ucrt64/lib/perl5 "$portable/lib/"
+          cp -R /ucrt64/lib/girepository-1.0 "$portable/lib/"
+          if [ -d /ucrt64/lib/gtk-3.0 ]; then cp -R /ucrt64/lib/gtk-3.0 "$portable/lib/"; fi
+          if [ -d /ucrt64/share/glib-2.0 ]; then mkdir -p "$portable/share"; cp -R /ucrt64/share/glib-2.0 "$portable/share/"; fi
+          if [ -d /ucrt64/share/icons ]; then cp -R /ucrt64/share/icons "$portable/share/"; fi
+          if [ -d /ucrt64/share/themes ]; then cp -R /ucrt64/share/themes "$portable/share/"; fi
+          test -s "$portable/bin/perl.exe"
+          test -s "$portable/app/bin/gcstar"
+          test -s "$portable/app/share/gcstar/icons/gcstar_16x16.png"
+          test -s "$portable/lib/girepository-1.0/Gtk-3.0.typelib"
+          printf 'EXPERIMENTAL ONLY - Not validated outside MSYS2. Not for distribution.\n' > "$portable/NO_DISTRIBUIR.txt"
+          echo "PORTABLE_STAGING=READY_NOT_VALIDATED"
+          echo "PORTABLE_STAGING_PATH=$(cygpath -w "$portable")"
+          du -sh "$portable"
+          echo "PORTABLE_STAGING_FILES=$(find "$portable" -type f | wc -l)"
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
