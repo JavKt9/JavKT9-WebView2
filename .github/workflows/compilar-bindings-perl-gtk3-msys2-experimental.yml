@@ -4,6 +4,12 @@ on:
     branches: [experimento-gcstar-par-rc1]
     paths: ['.github/workflows/compilar-bindings-perl-gtk3-msys2-experimental.yml', 'installer-experimental-gcstar/**']
   workflow_dispatch:
+    inputs:
+      subir_instalador:
+        description: 'Intentar guardar instalador (requiere cuota libre de artifacts)'
+        type: boolean
+        required: false
+        default: false
 permissions:
   contents: read
 env:
@@ -685,6 +691,7 @@ jobs:
           Write-Output 'INSTALLER_SILENT_UNINSTALL=PASS'
           Write-Output 'INSTALLER_FULL_LIFECYCLE=PASS'
       - name: 12w Guardar instalador experimental descargable
+        if: github.event_name == 'workflow_dispatch' && inputs.subir_instalador == true
         uses: actions/upload-artifact@v4
         with:
           name: JavKT9-GCstar-Experimental-NO-DISTRIBUIR
