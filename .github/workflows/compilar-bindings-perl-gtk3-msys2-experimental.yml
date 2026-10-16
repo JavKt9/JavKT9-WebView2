@@ -491,13 +491,14 @@ jobs:
           test -s "$artifact_dir/typelibs.txt"
           echo "INVENTORY_ARTIFACT_WINDOWS_PATH=$(cygpath -w "$artifact_dir")"
           ls -lh "$artifact_dir"
-      - name: 12p Guardar inventario portable en artefacto
-        uses: actions/upload-artifact@v4
-        with:
-          name: gcstar-runtime-inventario-experimental
-          path: ${{ runner.temp }}/gcstar-runtime-inventario/
-          if-no-files-found: error
-          retention-days: 7
+      - name: 12p Publicar inventario en logs sin usar cuota de artefactos
+        run: |
+          set -euo pipefail
+          echo '=== INVENTARIO DLL UCRT64 ==='
+          cat "$WORK/portable-inventory/ucrt64-dlls.txt"
+          echo '=== INVENTARIO TYPELIB GTK3 ==='
+          cat "$WORK/portable-inventory/typelibs.txt"
+          echo "PORTABLE_INVENTORY_LOGGED=YES"
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
