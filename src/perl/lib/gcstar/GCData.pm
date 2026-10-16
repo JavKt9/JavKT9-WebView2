@@ -856,7 +856,7 @@ use strict;
         }
 
         # Hide the panel if no item
-        if (! scalar @{$self->{itemArray}})
+        if (! scalar @{$self->{itemArray}} && $self->{panel})
         {
             $self->{panel}->hide;
         }
