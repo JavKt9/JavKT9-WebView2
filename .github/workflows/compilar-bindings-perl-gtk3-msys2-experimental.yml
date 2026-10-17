@@ -12,7 +12,7 @@ on:
         default: false
 # Artifact upload requested explicitly by tagged experimental push; never publish a release.
 permissions:
-  contents: read
+  contents: write
 env:
   WORK: /tmp/cairo-work
 jobs:
@@ -790,6 +790,67 @@ jobs:
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
+      # Exportacion alternativa: rama temporal aislada, sin Actions Artifacts ni releases.
+      - name: 12x Exportar instalador a rama temporal sin artifacts
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[exportar-instalador-sin-artifacts]')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'output-gcstar-experimental/JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe'
+          if (-not (Test-Path $exe)) { throw 'INSTALLER_OUTPUT_MISSING' }
+          $export = Join-Path $env:RUNNER_TEMP 'javkt9-export'
+          New-Item -ItemType Directory -Force -Path $export | Out-Null
+          $chunkSize = 20MB
+          $buffer = New-Object byte[] $chunkSize
+          $inputStream = [IO.File]::OpenRead($exe)
+          $parts = @()
+          try {
+            $i = 0
+            while (($count = $inputStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+              $partName = ('JavKT9-Experimental.exe.part{0:D3}' -f $i)
+              $partPath = Join-Path $export $partName
+              $outputStream = [IO.File]::Create($partPath)
+              try { $outputStream.Write($buffer, 0, $count) } finally { $outputStream.Dispose() }
+              $parts += $partName
+              $i++
+            }
+          } finally { $inputStream.Dispose() }
+          $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $exe).Hash.ToLowerInvariant()
+          $rebuild = @'
+          $ErrorActionPreference = 'Stop'
+          $parts = @(Get-ChildItem -File 'JavKT9-Experimental.exe.part*' | Sort-Object Name)
+          if ($parts.Count -eq 0) { throw 'No se encontraron las partes descargadas' }
+          $dest = Join-Path (Get-Location) 'JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe'
+          $out = [IO.File]::Create($dest)
+          try {
+            foreach ($part in $parts) {
+              $src = [IO.File]::OpenRead($part.FullName)
+              try { $src.CopyTo($out) } finally { $src.Dispose() }
+            }
+          } finally { $out.Dispose() }
+          $expected = (Get-Content -Raw 'SHA256.txt').Trim()
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $dest).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw 'ERROR: la descarga no coincide con el instalador original' }
+          Write-Host 'Instalador reconstruido y verificado:' $dest
+          '@
+          Set-Content -LiteralPath (Join-Path $export 'RECONSTRUIR.ps1') -Value $rebuild -Encoding UTF8
+          Set-Content -LiteralPath (Join-Path $export 'SHA256.txt') -Value $sha -Encoding ascii
+          Set-Content -LiteralPath (Join-Path $export 'LEEME.txt') -Value "Descargar todas las partes, SHA256.txt y RECONSTRUIR.ps1 en una misma carpeta. Abrir PowerShell en esa carpeta y ejecutar: powershell -ExecutionPolicy Bypass -File .\RECONSTRUIR.ps1. No distribuir este instalador experimental." -Encoding UTF8
+          Set-Location $export
+          git init -b descarga-experimental-sin-artifacts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m 'Instalador experimental temporal dividido y verificado'
+          $remote = "https://x-access-token:$($env:GH_TOKEN)@github.com/$($env:GITHUB_REPOSITORY).git"
+          git push --force $remote 'HEAD:refs/heads/descarga-experimental-sin-artifacts'
+          if ($LASTEXITCODE -ne 0) { throw 'TEMPORARY_BRANCH_PUSH_FAILED' }
+          Write-Output "INSTALLER_TEMPORARY_BRANCH=descarga-experimental-sin-artifacts"
+          Write-Output "INSTALLER_PARTS=$($parts.Count)"
+          Write-Output "INSTALLER_SHA256=$sha"
+          Write-Output 'INSTALLER_ARTIFACT_QUOTA_NOT_USED=YES'
       - name: 13 Diagnosticar arranque GCstar completo
         run: |
           set +e
