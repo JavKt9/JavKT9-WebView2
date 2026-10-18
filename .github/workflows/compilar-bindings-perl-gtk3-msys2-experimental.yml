@@ -807,7 +807,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: JavKT9-GCstar-Experimental-NO-DISTRIBUIR
-          path: output-gcstar-experimental/JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe
+          path: output-gcstar-experimental/JavKT9-081-RC1-NO-DISTRIBUIR.exe
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
@@ -819,7 +819,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $exe = Join-Path $env:GITHUB_WORKSPACE 'output-gcstar-experimental/JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'output-gcstar-experimental/JavKT9-081-RC1-NO-DISTRIBUIR.exe'
           if (-not (Test-Path $exe)) { throw 'INSTALLER_OUTPUT_MISSING' }
           $export = Join-Path $env:RUNNER_TEMP 'javkt9-export'
           New-Item -ItemType Directory -Force -Path $export | Out-Null
@@ -843,7 +843,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $parts = @(Get-ChildItem -File 'JavKT9-Experimental.exe.part*' | Sort-Object Name)
           if ($parts.Count -eq 0) { throw 'No se encontraron las partes descargadas' }
-          $dest = Join-Path (Get-Location) 'JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe'
+          $dest = Join-Path (Get-Location) 'JavKT9-081-RC1-NO-DISTRIBUIR.exe'
           $out = [IO.File]::Create($dest)
           try {
             foreach ($part in $parts) {
