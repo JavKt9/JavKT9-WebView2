@@ -4307,7 +4307,7 @@ $@");
 
         # JAVkt9: icono de la aplicación, no los PNG heredados de GCstar.
         # La ruta de instalación es <raiz>/share/gcstar y <raiz>/icons/JavKT9-window.png.
-        my $javIcon = File::Spec->catfile($ENV{GCS_SHARE_DIR}, '..', '..', 'icons', 'JavKT9-window.png');
+        my $javIcon = File::Spec->catfile($ENV{GCS_SHARE_DIR}, 'JavKT9-window.png');
         my $iconLoaded = eval {
             my $pixbuf = Gtk3::Gdk::Pixbuf->new_from_file($javIcon);
             $self->set_icon($pixbuf);
