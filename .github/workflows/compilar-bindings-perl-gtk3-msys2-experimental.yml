@@ -673,7 +673,7 @@ jobs:
               # No fabricar un logo sustituto a partir del ICO.
             } finally { $bitmap.Dispose() }
           } finally { $icon.Dispose() }
-          $aboutSource = Join-Path $env:GITHUB_WORKSPACE 'installer/JavKT9-about.png'
+          $aboutSource = Join-Path $env:GITHUB_WORKSPACE 'installer/logo_javkt9.png'
           if (-not (Test-Path $aboutSource)) { throw 'JAVKT9_ABOUT_ORIGINAL_IMAGE_NOT_UPLOADED' }
           Copy-Item -LiteralPath $aboutSource -Destination (Join-Path $shareDir 'JavKT9-about.png') -Force
           if (-not (Test-Path (Join-Path $shareDir 'JavKT9-about.png'))) { throw 'JAVKT9_ABOUT_LOGO_MISSING' }
