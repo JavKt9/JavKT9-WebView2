@@ -1513,6 +1513,7 @@ use File::Spec ();
         {
             $widget = new GCShortText;
             $widget->signal_connect('activate', sub {
+                # Enter debe usar el mismo proveedor que Descargar y Update.
                 $self->searchItem('gcjav');
             }) if $self->{model}->isSearchField($info->{value});
         }
