@@ -663,6 +663,9 @@ jobs:
           dotnet publish 'src/JavKT9WebView2/JavKT9WebView2.csproj' -c Release -r win-x64 --self-contained true -o $hostDir
           if ($LASTEXITCODE -ne 0) { throw 'WEBVIEW2_PUBLISH_FAILED' }
           if (-not (Test-Path (Join-Path $hostDir 'JavKT9WebView2.exe'))) { throw 'WEBVIEW2_HOST_MISSING' }
+          $appBin = Join-Path $portable 'app/bin'
+          Copy-Item -LiteralPath $hostDir -Destination (Join-Path $appBin 'WebView2Host') -Recurse -Force
+          Copy-Item -LiteralPath (Join-Path $portable 'bin/perl.exe') -Destination (Join-Path $appBin 'perl.exe') -Force
           $vbs = @'
           Set shell = CreateObject("WScript.Shell")
           shell.Run Chr(34) & CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName) & "\JavKT9-Experimental.cmd" & Chr(34), 0, False
@@ -703,7 +706,7 @@ jobs:
           $uninstaller = Join-Path $target 'unins000.exe'
           $launcher = Join-Path $target 'JavKT9-Experimental.cmd'
           if (-not (Test-Path $launcher)) { throw 'INSTALLED_LAUNCHER_MISSING' }
-          if (-not (Test-Path (Join-Path $target 'bin/WebView2Host/JavKT9WebView2.exe'))) { throw 'INSTALLED_WEBVIEW2_HOST_MISSING' }
+          if (-not (Test-Path (Join-Path $target 'app/bin/WebView2Host/JavKT9WebView2.exe'))) { throw 'INSTALLED_WEBVIEW2_HOST_MISSING' }
           if (-not (Test-Path (Join-Path $target 'JavKT9-Experimental.vbs'))) { throw 'INSTALLED_HIDDEN_LAUNCHER_MISSING' }
           $launcherText = Get-Content -Path $launcher -Raw
           if ($launcherText -notmatch 'JAVKT9_PROFILE_DIR=JavKT9-081-RC1-Experimental') { throw 'INSTALLED_LAUNCHER_PROFILE_NOT_ISOLATED' }
