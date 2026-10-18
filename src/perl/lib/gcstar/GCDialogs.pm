@@ -263,6 +263,12 @@ $hasAboutDialog = 0 if $@;
         my $logoFile = $ENV{GCS_SHARE_DIR}.'/JavKT9-about.png';
         if (-f $logoFile) {
             my $pix = Gtk3::Gdk::Pixbuf->new_from_file($logoFile);
+            my ($w, $h) = ($pix->get_width, $pix->get_height);
+            my $maxSize = 220;
+            if ($w > $maxSize || $h > $maxSize) {
+                my $scale = $maxSize / ($w > $h ? $w : $h);
+                $pix = $pix->scale_simple(int($w * $scale), int($h * $scale), 'bilinear');
+            }
             $area->pack_start(Gtk3::Image->new_from_pixbuf($pix), 0, 0, 4);
         }
         my $title = Gtk3::Label->new;
