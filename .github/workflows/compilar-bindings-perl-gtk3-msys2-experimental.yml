@@ -654,6 +654,22 @@ jobs:
           foreach ($line in $bad) { Write-Output "PORTABLE_EXTERNAL_PERL_PATH=$line" }
           if ($bad.Count -gt 0) { throw 'PORTABLE_PERL_PATH_ISOLATION=FAILED' }
           Write-Output 'PORTABLE_PERL_PATH_ISOLATION=PASS'
+      - name: 12t2 Incluir WebView2 y lanzador sin consola
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $portable = Join-Path $env:RUNNER_TEMP 'javkt9-portable-experimental'
+          $hostDir = Join-Path $portable 'bin/WebView2Host'
+          dotnet publish 'src/JavKT9WebView2/JavKT9WebView2.csproj' -c Release -r win-x64 --self-contained true -o $hostDir
+          if ($LASTEXITCODE -ne 0) { throw 'WEBVIEW2_PUBLISH_FAILED' }
+          if (-not (Test-Path (Join-Path $hostDir 'JavKT9WebView2.exe'))) { throw 'WEBVIEW2_HOST_MISSING' }
+          $vbs = @'
+          Set shell = CreateObject("WScript.Shell")
+          shell.Run Chr(34) & CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName) & "\JavKT9-Experimental.cmd" & Chr(34), 0, False
+          '@
+          Set-Content -LiteralPath (Join-Path $portable 'JavKT9-Experimental.vbs') -Value $vbs -Encoding ascii
+          Write-Output 'WEBVIEW2_HOST_PACKAGED=PASS'
+          Write-Output 'GUI_LAUNCHER_NO_CONSOLE=READY'
       - name: 12u Compilar instalador Inno experimental sin publicar
         shell: pwsh
         run: |
@@ -668,7 +684,7 @@ jobs:
           if (-not $iscc) { throw 'INNO_SETUP_COMPILER_NOT_FOUND' }
           & $iscc (Join-Path $installerDir 'JavKT9-GCstar-Portable.iss')
           if ($LASTEXITCODE -ne 0) { throw "INNO_SETUP_COMPILE_FAILED=$LASTEXITCODE" }
-          $exe = Join-Path $env:GITHUB_WORKSPACE 'output-gcstar-experimental/JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'output-gcstar-experimental/JavKT9-081-RC1-NO-DISTRIBUIR.exe'
           if (-not (Test-Path $exe)) { throw 'INNO_SETUP_OUTPUT_MISSING' }
           Write-Output "INNO_EXPERIMENTAL_COMPILE=PASS"
           Write-Output "INNO_EXPERIMENTAL_BYTES=$((Get-Item $exe).Length)"
@@ -677,7 +693,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $exe = Join-Path $env:GITHUB_WORKSPACE 'output-gcstar-experimental/JavKT9-GCstar-Experimental-NO-DISTRIBUIR.exe'
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'output-gcstar-experimental/JavKT9-081-RC1-NO-DISTRIBUIR.exe'
           $target = Join-Path $env:RUNNER_TEMP 'javkt9-installed-smoke'
           if (Test-Path $target) { Remove-Item $target -Recurse -Force }
           $install = Start-Process -FilePath $exe -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$target") -Wait -PassThru
@@ -687,6 +703,8 @@ jobs:
           $uninstaller = Join-Path $target 'unins000.exe'
           $launcher = Join-Path $target 'JavKT9-Experimental.cmd'
           if (-not (Test-Path $launcher)) { throw 'INSTALLED_LAUNCHER_MISSING' }
+          if (-not (Test-Path (Join-Path $target 'bin/WebView2Host/JavKT9WebView2.exe'))) { throw 'INSTALLED_WEBVIEW2_HOST_MISSING' }
+          if (-not (Test-Path (Join-Path $target 'JavKT9-Experimental.vbs'))) { throw 'INSTALLED_HIDDEN_LAUNCHER_MISSING' }
           $launcherText = Get-Content -Path $launcher -Raw
           if ($launcherText -notmatch 'JAVKT9_PROFILE_DIR=JavKT9-081-RC1-Experimental') { throw 'INSTALLED_LAUNCHER_PROFILE_NOT_ISOLATED' }
           Write-Output 'INSTALLED_LAUNCHER_PROFILE=ISOLATED'
@@ -809,7 +827,7 @@ jobs:
           try {
             $i = 0
             while (($count = $inputStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
-              $partName = ('JavKT9-Experimental.exe.part{0:D3}' -f $i)
+              $partName = ('JavKT9-081-RC1.exe.part{0:D3}' -f $i)
               $partPath = Join-Path $export $partName
               $outputStream = [IO.File]::Create($partPath)
               try { $outputStream.Write($buffer, 0, $count) } finally { $outputStream.Dispose() }
