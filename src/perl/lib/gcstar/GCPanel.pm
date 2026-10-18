@@ -1513,7 +1513,7 @@ use File::Spec ();
         {
             $widget = new GCShortText;
             $widget->signal_connect('activate', sub {
-                $self->searchItem;
+                $self->searchItem('gcjav');
             }) if $self->{model}->isSearchField($info->{value});
         }
         elsif ($info->{type} eq 'long text')
@@ -1648,7 +1648,7 @@ use File::Spec ();
         {
             $widget = new GCCheckedText($info->{format});
             $widget->signal_connect('activate', sub {
-                $self->searchItem;
+                $self->searchItem('gcjav');
             }) if $self->{model}->isSearchField($info->{value});
         }
         elsif ($info->{type} eq 'number')
@@ -1675,7 +1675,7 @@ use File::Spec ();
                         if ($info->{value} eq $self->{model}->{commonFields}->{id});
                 }
                 $widget->signal_connect('activate', sub {
-                    $self->searchItem;
+                    $self->searchItem('gcjav');
                 }) if $self->{model}->isSearchField($info->{value});
             }
         }
