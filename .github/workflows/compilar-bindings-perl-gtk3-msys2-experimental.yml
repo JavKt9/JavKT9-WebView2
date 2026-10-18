@@ -659,6 +659,20 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $portable = Join-Path $env:RUNNER_TEMP 'javkt9-portable-experimental'
+          # Derivar recursos visuales desde el icono oficial, sin usar los de GCstar.
+          Add-Type -AssemblyName System.Drawing
+          $iconPath = Join-Path $env:GITHUB_WORKSPACE 'installer/JavKT9.ico'
+          $shareDir = Join-Path $portable 'app/share/gcstar'
+          New-Item -ItemType Directory -Path $shareDir -Force | Out-Null
+          $icon = [System.Drawing.Icon]::new($iconPath, 128, 128)
+          try {
+            $bitmap = $icon.ToBitmap()
+            try {
+              $bitmap.Save((Join-Path $shareDir 'JavKT9-window.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+              $bitmap.Save((Join-Path $shareDir 'JavKT9-about.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+            } finally { $bitmap.Dispose() }
+          } finally { $icon.Dispose() }
+          if (-not (Test-Path (Join-Path $shareDir 'JavKT9-about.png'))) { throw 'JAVKT9_ABOUT_LOGO_MISSING' }
           $hostDir = Join-Path $portable 'bin/WebView2Host'
           dotnet publish 'src/JavKT9WebView2/JavKT9WebView2.csproj' -c Release -r win-x64 --self-contained true -o $hostDir
           if ($LASTEXITCODE -ne 0) { throw 'WEBVIEW2_PUBLISH_FAILED' }
