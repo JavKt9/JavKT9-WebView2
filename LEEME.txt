@@ -1,0 +1,1 @@
+Descargar todas las partes, SHA256.txt y RECONSTRUIR.ps1 en una misma carpeta. Abrir PowerShell en esa carpeta y ejecutar: powershell -ExecutionPolicy Bypass -File .\RECONSTRUIR.ps1. No distribuir este instalador experimental.
