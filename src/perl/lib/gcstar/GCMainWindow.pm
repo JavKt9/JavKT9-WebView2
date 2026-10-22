@@ -85,6 +85,7 @@ use Gtk3;
     use File::Spec;
     use File::Copy;
     use File::Path;
+    use File::Find ();
     use IO::Handle;
     use Storable qw(store_fd fd_retrieve);
     use File::Temp qw(tempdir);
@@ -2064,6 +2065,34 @@ $@");
                 $gcs[0]->extractToFileNamed($stagedGcs) != AZ_OK;
             if ($targetImages)
             {
+                # Preserve covers not present in an older or partial backup.
+                # First copy the existing tree to staging; archived covers
+                # will overwrite matching staged files below.
+                if (-d $targetImages)
+                {
+                    File::Find::find({
+                        no_chdir => 1,
+                        wanted => sub {
+                            my $source = $File::Find::name;
+                            return if $source eq $targetImages;
+                            die "Enlace simbolico no admitido en caratulas: $source"
+                                if -l $source;
+                            my $rel = File::Spec->abs2rel($source, $targetImages);
+                            my $dest = File::Spec->catfile($stagedImages, $rel);
+                            if (-d $source)
+                            {
+                                mkpath($dest) or die "No se pudo crear carpeta: $dest";
+                            }
+                            elsif (-f $source)
+                            {
+                                mkpath(dirname($dest)) or
+                                    die "No se pudo crear carpeta: ".dirname($dest);
+                                copy($source, $dest) or
+                                    die "No se pudo preservar caratula: $source";
+                            }
+                        }
+                    }, $targetImages);
+                }
                 my $imgBase = basename($imagesDir);
                 for my $member ($zip->members)
                 {
