@@ -701,6 +701,25 @@ $@");
                 }
                 else
                 {
+                    # RC2: the JavLibrary-only mode has no alternate provider.
+                    # A missing title is not a reason to open the legacy
+                    # provider selector (which can be confusing or unusable).
+                    if ($pluginType eq 'gcjav')
+                    {
+                        my $requested = defined($query) && ref($query) ne 'ARRAY'
+                                      ? $query : ($plugin->{title} || '');
+                        my $dialog = Gtk3::MessageDialog->new(
+                            $self, [qw/modal destroy-with-parent/],
+                            'warning', 'ok',
+                            "No se encontraron resultados en JavLibrary para: $requested\n\n".
+                            "Verifica el codigo (letras, numeros y guiones) e intenta nuevamente.\n".
+                            "Si el codigo es correcto, es posible que JavLibrary no lo tenga disponible."
+                        );
+                        $dialog->set_position('center-on-parent');
+                        $dialog->run;
+                        $dialog->destroy;
+                        return;
+                    }
                     my  $dialog = Gtk3::MessageDialog->new($self,
                                                            [qw/modal destroy-with-parent/],
                                                            'error',
