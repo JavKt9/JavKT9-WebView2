@@ -2113,10 +2113,10 @@ $@");
                 for my $member ($zip->members)
                 {
                     my $name = $member->fileName;
-                    next if $name !~ /^\\Q$imgBase\\E\\//;
+                    next if $name !~ /^\Q$imgBase\E\//;
                     my $rel = substr($name, length($imgBase) + 1);
                     next if $rel eq '';
-                    my $dest = File::Spec->catfile($stagedImages, split(/\\//, $rel));
+                    my $dest = File::Spec->catfile($stagedImages, split(/\//, $rel));
                     if ($member->isDirectory)
                     {
                         mkpath($dest);
@@ -2136,7 +2136,7 @@ $@");
             my $error = $@ || 'Error al preparar el respaldo';
             rmtree($stage);
             $self->_gcjavInfo('error',
-                "No se modifico la coleccion.\\n$error");
+                "No se modifico la coleccion.\n$error");
             return;
         }
 
