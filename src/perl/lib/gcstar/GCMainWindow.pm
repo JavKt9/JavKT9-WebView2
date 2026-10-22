@@ -2028,6 +2028,15 @@ $@");
                 my $rel = $n;
                 $rel =~ s/^\Q$imgBase\E\/?//;
                 next if $rel eq '';
+                # Never let an archive write outside the collection's
+                # image directory (absolute paths or parent traversal).
+                if ($rel =~ m{(?:^|/)\.\.(?:/|$)} || $rel =~ m{^/}
+                    || $rel =~ /\\/ || $rel =~ /:/)
+                {
+                    $self->_gcjavInfo('error',
+                        "El respaldo contiene una ruta de imagen no valida.\nRestauracion interrumpida.");
+                    return;
+                }
                 my $dest = File::Spec->catfile(localName($imagesDir), split(/\//, $rel));
                 if ($m->isDirectory)
                 {
