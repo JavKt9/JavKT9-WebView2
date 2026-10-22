@@ -2041,53 +2041,107 @@ $@");
             }
         }
 
-        # Replace collection file.
-        if ($gcs[0]->extractToFileNamed(localName($collection)) != AZ_OK)
+        # RC2 transactional restore: stage all files on the same volume
+        # before touching the active catalog or cover directory.
+        my $stage = eval {
+            tempdir('javkt9-restore-XXXXXX', DIR => localName($collectionDir),
+                    CLEANUP => 0);
+        };
+        if (!$stage)
         {
-            $self->_gcjavInfo('error', "No se pudo restaurar el archivo de colección.");
+            $self->_gcjavInfo('error', "No se pudo preparar una carpeta temporal para restaurar.");
             return;
         }
+        my $stagedGcs = File::Spec->catfile($stage, 'collection.gcs');
+        my $stagedImages = File::Spec->catdir($stage, 'covers');
+        my $backupGcs = File::Spec->catfile($stage, 'original.gcs');
+        my $backupImages = File::Spec->catdir($stage, 'original-covers');
+        my $targetGcs = localName($collection);
+        my $targetImages = $imagesDir ? localName($imagesDir) : undef;
 
-        # Restore image directory from the backup if present.
-        if ($imagesDir)
-        {
-            my $imgBase = basename($imagesDir);
-            # RC2: never erase the whole existing image directory. Existing
-            # covers remain available if an archive is incomplete or fails.
-            foreach my $m ($zip->members)
+        my $prepared = eval {
+            die "No se pudo extraer la coleccion" if
+                $gcs[0]->extractToFileNamed($stagedGcs) != AZ_OK;
+            if ($targetImages)
             {
-                my $n = $m->fileName;
-                next if $n !~ /^\Q$imgBase\E\//;
-                my $rel = $n;
-                $rel =~ s/^\Q$imgBase\E\/?//;
-                next if $rel eq '';
-                # Never let an archive write outside the collection's
-                # image directory (absolute paths or parent traversal).
-                if ($rel =~ m{(?:^|/)\.\.(?:/|$)} || $rel =~ m{^/}
-                    || $rel =~ /\\/ || $rel =~ /:/)
+                my $imgBase = basename($imagesDir);
+                for my $member ($zip->members)
                 {
-                    $self->_gcjavInfo('error',
-                        "El respaldo contiene una ruta de imagen no valida.\nRestauracion interrumpida.");
-                    return;
-                }
-                my $dest = File::Spec->catfile(localName($imagesDir), split(/\//, $rel));
-                if ($m->isDirectory)
-                {
-                    mkpath($dest);
-                }
-                else
-                {
-                    mkpath(dirname($dest));
-                    if ($m->extractToFileNamed($dest) != AZ_OK)
+                    my $name = $member->fileName;
+                    next if $name !~ /^\\Q$imgBase\\E\\//;
+                    my $rel = substr($name, length($imgBase) + 1);
+                    next if $rel eq '';
+                    my $dest = File::Spec->catfile($stagedImages, split(/\\//, $rel));
+                    if ($member->isDirectory)
                     {
-                        $self->_gcjavInfo('error',
-                            "No se pudo restaurar una caratula.\n".
-                            "Revisa la coleccion antes de continuar.");
-                        return;
+                        mkpath($dest);
+                    }
+                    else
+                    {
+                        mkpath(dirname($dest));
+                        die "No se pudo extraer una caratula: $rel" if
+                            $member->extractToFileNamed($dest) != AZ_OK;
                     }
                 }
             }
+            1;
+        };
+        if (!$prepared)
+        {
+            my $error = $@ || 'Error al preparar el respaldo';
+            rmtree($stage);
+            $self->_gcjavInfo('error',
+                "No se modifico la coleccion.\\n$error");
+            return;
         }
+
+        # Move the old files aside; all renames remain on the same disk.
+        # On failure, restore the originals before reporting the error.
+        my ($movedGcs, $movedImages, $installedGcs, $installedImages) = (0, 0, 0, 0);
+        my $committed = eval {
+            if (-e $targetGcs)
+            {
+                die "No se pudo apartar la coleccion actual" unless
+                    rename($targetGcs, $backupGcs);
+                $movedGcs = 1;
+            }
+            if ($targetImages && -d $targetImages)
+            {
+                die "No se pudo apartar la carpeta de caratulas" unless
+                    rename($targetImages, $backupImages);
+                $movedImages = 1;
+            }
+            die "No se pudo instalar la coleccion restaurada" unless
+                rename($stagedGcs, $targetGcs);
+            $installedGcs = 1;
+            if ($targetImages && -d $stagedImages)
+            {
+                die "No se pudieron instalar las caratulas restauradas" unless
+                    rename($stagedImages, $targetImages);
+                $installedImages = 1;
+            }
+            1;
+        };
+        if (!$committed)
+        {
+            my $error = $@ || 'Error durante la restauracion';
+            my $rollbackOk = 1;
+            $rollbackOk &&= rmtree($targetImages) ? 1 : 0
+                if $installedImages && $targetImages && -d $targetImages;
+            $rollbackOk &&= unlink($targetGcs) if $installedGcs && -f $targetGcs;
+            $rollbackOk &&= rename($backupGcs, $targetGcs) if $movedGcs;
+            $rollbackOk &&= rename($backupImages, $targetImages) if $movedImages;
+            # Keep the staging directory if rollback was incomplete.
+            rmtree($stage) if $rollbackOk;
+            $self->_gcjavInfo('error',
+                "La restauracion fallo: $error\\n".
+                ($rollbackOk
+                    ? "Se recuperaron los archivos anteriores."
+                    : "No se pudo completar la recuperacion automatica. ".
+                      "Conserva la carpeta temporal: $stage"));
+            return;
+        }
+        rmtree($stage);
 
         $self->_gcjavInfo('info',
             "Backup restaurado.\n\nGCJav volverá a abrir la colección.");
