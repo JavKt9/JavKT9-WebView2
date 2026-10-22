@@ -1345,6 +1345,66 @@ $@");
         }
     }
 
+    # RC2: normalize movie product codes for duplicate detection.
+    sub _gcjavNormalizedMovieCode
+    {
+        my ($code) = @_;
+        return '' if !defined($code);
+        $code = uc($code);
+        $code =~ s/[^A-Z0-9]//g;
+        return $code;
+    }
+
+    sub _gcjavConfirmDuplicate
+    {
+        my ($self, $info) = @_;
+        return 1 if !$info || ref($info) ne 'HASH';
+        my $field = $self->{model}->{commonFields}->{title};
+        return 1 if !$field;
+        my $code = _gcjavNormalizedMovieCode($info->{$field});
+        return 1 if !$code;
+        for my $existing (@{$self->{items}->{itemArray} || []})
+        {
+            next if ref($existing) ne 'HASH';
+            next if _gcjavNormalizedMovieCode($existing->{$field}) ne $code;
+            my $dialog = Gtk3::Dialog->new(
+                'Pelicula ya existente', $self,
+                [qw/modal destroy-with-parent/],
+                'Ver existente' => 1,
+                'Agregar de todas formas' => 2,
+                'Cancelar' => 0
+            );
+            my $label = Gtk3::Label->new(
+                "La pelicula ".$info->{$field}." ya existe en tu coleccion.\n\n¿Que queres hacer?"
+            );
+            $dialog->get_content_area->pack_start($label, 1, 1, 14);
+            $dialog->set_default_response(1);
+            $dialog->show_all;
+            my $answer = $dialog->run;
+            $dialog->destroy;
+            if ($answer == 1)
+            {
+                # Select the existing item, without changing its information.
+                my $idField = $self->{model}->{commonFields}->{id};
+                my $existingId = $existing->{$idField};
+                if (defined($existingId))
+                {
+                    for (my $i = 0; $i < @{$self->{items}->{itemArray}}; $i++)
+                    {
+                        if (defined($self->{items}->{itemArray}->[$i]->{$idField})
+                            && $self->{items}->{itemArray}->[$i]->{$idField} eq $existingId)
+                        {
+                            $self->{items}->select($i, 0);
+                            last;
+                        }
+                    }
+                }
+            }
+            return $answer == 2 ? 1 : 0;
+        }
+        return 1;
+    }
+
     sub addItem
     {
         my ($self, $info, $newItem, $keepId, $defaultValues) = @_;
@@ -1353,6 +1413,8 @@ $@");
 
         if ($newItem)
         {
+            # Do not warn for an empty manual form; only for populated movie codes.
+            return if !$defaultValues && !$self->_gcjavConfirmDuplicate($info);
             $self->markAsUpdated;
             my $id = $self->{items}->addItem($info, $keepId);
             my @picFields = ();
