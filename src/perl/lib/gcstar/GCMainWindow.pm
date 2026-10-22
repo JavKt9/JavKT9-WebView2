@@ -1229,6 +1229,14 @@ $@");
                 return if ! $self->getDialog('ImportFields')->show;
                 $info = $self->getDialog('ImportFields')->info;
             }
+            # RC2: before importing JavLibrary data into the current panel,
+            # check the catalog for the same movie code. Do not overwrite the
+            # current form unless the user explicitly chooses to proceed.
+            if ($plugin && ref($plugin) =~ /GCPluginJavLibrary/
+                && !$self->_gcjavConfirmDuplicate($info, 1))
+            {
+                return;
+            }
             # Set the information (2nd parameter set to 0 means no item creation).
             $self->addItem($info, 0);
         }
@@ -1376,14 +1384,22 @@ $@");
 
     sub _gcjavConfirmDuplicate
     {
-        my ($self, $info) = @_;
+        my ($self, $info, $excludeCurrent) = @_;
         return 1 if !$info || ref($info) ne 'HASH';
         my $field = $self->{model}->{commonFields}->{title};
         return 1 if !$field;
         my $code = _gcjavNormalizedMovieCode($info->{$field});
         return 1 if !$code;
-        for my $existing (@{$self->{items}->{itemArray} || []})
+        my $currentIndex = $self->{items}->{currentItem};
+        for (my $existingIndex = 0;
+             $existingIndex < @{$self->{items}->{itemArray} || []};
+             $existingIndex++)
         {
+            # The current form may be a newly created placeholder or an
+            # existing movie being refreshed; neither is its own duplicate.
+            next if $excludeCurrent && defined($currentIndex)
+                 && $existingIndex == $currentIndex;
+            my $existing = $self->{items}->{itemArray}->[$existingIndex];
             next if ref($existing) ne 'HASH';
             next if _gcjavNormalizedMovieCode($existing->{$field}) ne $code;
             my $dialog = Gtk3::Dialog->new(
