@@ -1982,6 +1982,13 @@ $@");
         $confirm->destroy;
         return if $ans ne 'yes';
 
+        # Save pending edits before making the on-disk safety copy.
+        # Otherwise reopening the restored collection can trigger
+        # checkAndSave and overwrite the just-restored catalog.
+        $self->{items}->updateSelectedItemInfoFromPanel;
+        return if !$self->saveList;
+        $self->removeUpdatedMark;
+
         my $zip = Archive::Zip->new();
         if ($zip->read(localName($zipFile)) != AZ_OK)
         {
