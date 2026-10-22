@@ -1983,6 +1983,39 @@ $@");
         my $collectionDir = dirname($collection);
         my $imagesDir = $self->getImagesDir;
 
+        # RC2 preflight: verify ZIP contents and every cover path BEFORE
+        # replacing the catalog. A broken or malicious archive must not
+        # leave the collection half-restored.
+        if ($zip->testArchive() != AZ_OK)
+        {
+            $self->_gcjavInfo('error',
+                "El respaldo ZIP esta danado o incompleto.\nNo se modifico la coleccion.");
+            return;
+        }
+        if (@gcs != 1)
+        {
+            $self->_gcjavInfo('error',
+                "El respaldo debe contener una unica coleccion .gcs.");
+            return;
+        }
+        if ($imagesDir)
+        {
+            my $imgBase = basename($imagesDir);
+            for my $member ($zip->members)
+            {
+                my $name = $member->fileName;
+                next if $name !~ /^\Q$imgBase\E\//;
+                my $rel = substr($name, length($imgBase) + 1);
+                if ($rel =~ m{(?:^|/)\.\.(?:/|$)} || $rel =~ m{^/}
+                    || $rel =~ /\\/ || $rel =~ /:/)
+                {
+                    $self->_gcjavInfo('error',
+                        "El respaldo contiene una ruta de imagen no valida.\nNo se modifico la coleccion.");
+                    return;
+                }
+            }
+        }
+
         # RC2: a failed safety copy must abort restoration rather than
         # risking irreversible loss of the current catalog.
         my $pre = localName($collection).'.antes_restaurar';
