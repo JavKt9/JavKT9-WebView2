@@ -92,6 +92,8 @@ use Gtk3;
     use Encode;
     use Archive::Zip qw(:ERROR_CODES :CONSTANTS);
     use POSIX qw(strftime);
+    use JSON::PP ();
+    use Fcntl qw(:flock);
 
     sub showMe
     {
@@ -2024,6 +2026,25 @@ $@");
             return;
         }
 
+        # Older ZIP backups have no favorites: keep current favorites unchanged.
+        my @favMembers = grep { $_->fileName eq 'JavKT9/person-favorites.json' }
+                         $zip->members;
+        if (@favMembers > 1 || (@favMembers && $favMembers[0]->isDirectory))
+        {
+            $self->_gcjavInfo('error', "El backup contiene favoritos duplicados o invalidos.");
+            return;
+        }
+        my $favRoot = $ENV{LOCALAPPDATA} || $ENV{APPDATA};
+        if (@favMembers && !$favRoot)
+        {
+            $self->_gcjavInfo('error', "No se encontro la carpeta de favoritos del usuario.");
+            return;
+        }
+        my $favDir = $favRoot ? File::Spec->catdir(
+            $favRoot, 'JavKT9-081-RC1-Publica-Publica') : undef;
+        my $favTarget = $favDir ? localName(
+            File::Spec->catfile($favDir, 'person-favorites.json')) : undef;
+
         my $collection = $self->{options}->file;
         my $collectionDir = dirname($collection);
         my $imagesDir = $self->getImagesDir;
@@ -2104,7 +2125,37 @@ $@");
         my $targetGcs = localName($collection);
         my $targetImages = $imagesDir ? localName($imagesDir) : undef;
 
+        my $favStage;
+        my $favOriginal;
+        my $favLock;
         my $prepared = eval {
+            if (@favMembers)
+            {
+                mkpath(localName($favDir)) unless -d localName($favDir);
+                open($favLock, '>>', $favTarget.'.lock')
+                    or die "No se pudo abrir el bloqueo de favoritos";
+                flock($favLock, LOCK_EX)
+                    or die "No se pudieron bloquear los favoritos";
+                # Favorites staging must be on the favorites volume, not
+                # necessarily the same disk as the collection.
+                $favStage = $favTarget.'.restaurando-rc2';
+                $favOriginal = $favTarget.'.antes_restaurar-rc2';
+                die "Ya existe una restauracion pendiente de favoritos"
+                    if -e $favStage || -e $favOriginal;
+                die "No se pudieron extraer los favoritos" if
+                    $favMembers[0]->extractToFileNamed($favStage) != AZ_OK;
+                open(my $fh, '<:raw', $favStage)
+                    or die "No se pudieron leer los favoritos";
+                local $/;
+                my $raw = <$fh>;
+                close($fh);
+                my $data = JSON::PP->new->utf8->decode($raw);
+                die "Formato de favoritos invalido" unless
+                    ref($data) eq 'HASH' && defined($data->{version})
+                    && $data->{version} eq '1'
+                    && ref($data->{actors}) eq 'HASH'
+                    && ref($data->{directors}) eq 'HASH';
+            }
             die "No se pudo extraer la coleccion" if
                 $gcs[0]->extractToFileNamed($stagedGcs) != AZ_OK;
             if ($targetImages)
@@ -2163,6 +2214,8 @@ $@");
         {
             my $error = $@ || 'Error al preparar el respaldo';
             rmtree($stage);
+            unlink($favStage) if $favStage && -f $favStage;
+            close($favLock) if $favLock;
             $self->_gcjavInfo('error',
                 "No se modifico la coleccion.\n$error");
             return;
@@ -2171,6 +2224,7 @@ $@");
         # Move the old files aside; all renames remain on the same disk.
         # On failure, restore the originals before reporting the error.
         my ($movedGcs, $movedImages, $installedGcs, $installedImages) = (0, 0, 0, 0);
+        my ($movedFav, $installedFav) = (0, 0);
         my $committed = eval {
             if (-e $targetGcs)
             {
@@ -2193,6 +2247,18 @@ $@");
                     rename($stagedImages, $targetImages);
                 $installedImages = 1;
             }
+            if (@favMembers)
+            {
+                if (-e $favTarget)
+                {
+                    rename($favTarget, $favOriginal)
+                        or die "No se pudieron proteger los favoritos actuales";
+                    $movedFav = 1;
+                }
+                rename($favStage, $favTarget)
+                    or die "No se pudieron restaurar los favoritos";
+                $installedFav = 1;
+            }
             1;
         };
         if (!$committed)
@@ -2200,6 +2266,15 @@ $@");
             my $error = $@ || 'Error durante la restauracion';
             my $rollbackOk = 1;
             # Attempt every rollback step even if an earlier one fails.
+            if ($installedFav && -f $favTarget)
+            {
+                $rollbackOk = 0 unless unlink($favTarget);
+            }
+            if ($movedFav)
+            {
+                $rollbackOk = 0 unless rename($favOriginal, $favTarget);
+            }
+            unlink($favStage) if $favStage && -f $favStage;
             if ($installedImages && $targetImages && -d $targetImages)
             {
                 my $ok = rmtree($targetImages);
@@ -2219,6 +2294,7 @@ $@");
             }
             # Keep the staging directory if rollback was incomplete.
             rmtree($stage) if $rollbackOk;
+            close($favLock) if $favLock;
             $self->_gcjavInfo('error',
                 "La restauracion fallo: $error\\n".
                 ($rollbackOk
@@ -2228,6 +2304,8 @@ $@");
             return;
         }
         rmtree($stage);
+        unlink($favOriginal) if $movedFav && -f $favOriginal;
+        close($favLock) if $favLock;
 
         $self->_gcjavInfo('info',
             "Backup restaurado.\n\nGCJav volverá a abrir la colección.");
