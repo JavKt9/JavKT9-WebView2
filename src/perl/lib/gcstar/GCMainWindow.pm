@@ -2126,11 +2126,24 @@ $@");
         {
             my $error = $@ || 'Error durante la restauracion';
             my $rollbackOk = 1;
-            $rollbackOk &&= rmtree($targetImages) ? 1 : 0
-                if $installedImages && $targetImages && -d $targetImages;
-            $rollbackOk &&= unlink($targetGcs) if $installedGcs && -f $targetGcs;
-            $rollbackOk &&= rename($backupGcs, $targetGcs) if $movedGcs;
-            $rollbackOk &&= rename($backupImages, $targetImages) if $movedImages;
+            # Attempt every rollback step even if an earlier one fails.
+            if ($installedImages && $targetImages && -d $targetImages)
+            {
+                my $ok = rmtree($targetImages);
+                $rollbackOk = 0 if !$ok;
+            }
+            if ($installedGcs && -f $targetGcs)
+            {
+                $rollbackOk = 0 unless unlink($targetGcs);
+            }
+            if ($movedGcs)
+            {
+                $rollbackOk = 0 unless rename($backupGcs, $targetGcs);
+            }
+            if ($movedImages)
+            {
+                $rollbackOk = 0 unless rename($backupImages, $targetImages);
+            }
             # Keep the staging directory if rollback was incomplete.
             rmtree($stage) if $rollbackOk;
             $self->_gcjavInfo('error',
