@@ -1911,6 +1911,27 @@ $@");
         my $zip = Archive::Zip->new();
         $zip->addFile(localName($collection), basename($collection));
 
+        # Favorites are stored outside the .gcs catalog. Include their
+        # portable JSON data when available, without modifying user settings.
+        my $favRoot = $ENV{LOCALAPPDATA} || $ENV{APPDATA};
+        if ($favRoot)
+        {
+            my $favFile = File::Spec->catfile(
+                $favRoot, 'JavKT9-081-RC1-Publica-Publica',
+                'person-favorites.json');
+            if (-f localName($favFile))
+            {
+                my $member = $zip->addFile(localName($favFile),
+                                           'JavKT9/person-favorites.json');
+                if (!$member)
+                {
+                    $self->_gcjavInfo('error',
+                        "No se pudieron incluir los favoritos en el respaldo.");
+                    return;
+                }
+            }
+        }
+
         if ($imagesDir && -d localName($imagesDir))
         {
             my $imgBase = basename($imagesDir);
