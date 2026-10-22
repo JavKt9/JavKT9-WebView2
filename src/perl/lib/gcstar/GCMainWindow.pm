@@ -1890,6 +1890,21 @@ $@");
         my $pre = localName($collection).'.antes_restaurar';
         copy(localName($collection), $pre) if -f localName($collection);
 
+        # RC2 safety: never replace a collection unless its cover-image
+        # directory is also present in the archive. Incomplete backups must
+        # not silently destroy existing cover art.
+        if ($imagesDir && -d localName($imagesDir))
+        {
+            my $imgBase = basename($imagesDir);
+            my @images = grep { $_->fileName =~ /^\Q$imgBase\E\// && !$_->isDirectory } $zip->members;
+            if (!@images)
+            {
+                $self->_gcjavInfo('error',
+                    "El respaldo no contiene las caratulas de esta coleccion.\nNo se modifico ningun archivo.");
+                return;
+            }
+        }
+
         # Replace collection file.
         if ($gcs[0]->extractToFileNamed(localName($collection)) != AZ_OK)
         {
@@ -1901,7 +1916,8 @@ $@");
         if ($imagesDir)
         {
             my $imgBase = basename($imagesDir);
-            eval { rmtree(localName($imagesDir)) if -d localName($imagesDir); };
+            # RC2: never erase the whole existing image directory. Existing
+            # covers remain available if an archive is incomplete or fails.
             foreach my $m ($zip->members)
             {
                 my $n = $m->fileName;
