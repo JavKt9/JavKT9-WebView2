@@ -1983,9 +1983,15 @@ $@");
         my $collectionDir = dirname($collection);
         my $imagesDir = $self->getImagesDir;
 
-        # Safety copy immediately before restore.
+        # RC2: a failed safety copy must abort restoration rather than
+        # risking irreversible loss of the current catalog.
         my $pre = localName($collection).'.antes_restaurar';
-        copy(localName($collection), $pre) if -f localName($collection);
+        if (-f localName($collection) && !copy(localName($collection), $pre))
+        {
+            $self->_gcjavInfo('error',
+                "No se pudo crear la copia de seguridad previa.\nNo se modifico la coleccion.");
+            return;
+        }
 
         # RC2 safety: never replace a collection unless its cover-image
         # directory is also present in the archive. Incomplete backups must
@@ -2030,7 +2036,13 @@ $@");
                 else
                 {
                     mkpath(dirname($dest));
-                    $m->extractToFileNamed($dest);
+                    if ($m->extractToFileNamed($dest) != AZ_OK)
+                    {
+                        $self->_gcjavInfo('error',
+                            "No se pudo restaurar una caratula.\n".
+                            "Revisa la coleccion antes de continuar.");
+                        return;
+                    }
                 }
             }
         }
