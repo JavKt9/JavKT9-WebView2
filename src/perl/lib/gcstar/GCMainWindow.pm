@@ -1923,7 +1923,23 @@ $@");
 
         if ($zip->writeToFileNamed(localName($zipFile)) != AZ_OK)
         {
+            unlink(localName($zipFile));
             $self->_gcjavInfo('error', "No se pudo crear el backup:\n$zipFile");
+            return;
+        }
+
+        # RC2: reopen and verify the written archive before considering it
+        # a successful backup or pruning any older, known-good backups.
+        my $verify = Archive::Zip->new();
+        if ($verify->read(localName($zipFile)) != AZ_OK
+            || $verify->testArchive() != AZ_OK
+            || scalar(grep { $_->fileName eq basename($collection) }
+                      $verify->members) != 1)
+        {
+            unlink(localName($zipFile));
+            $self->_gcjavInfo('error',
+                "El respaldo no supero la verificacion.\n".
+                "Se conservaron las copias anteriores.");
             return;
         }
 
