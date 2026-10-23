@@ -1894,6 +1894,28 @@ $@");
         system(1, 'explorer.exe', localName($dir)) if $^O =~ /win32/i;
     }
 
+    # Validate each ZIP member using the supported extraction API.
+    # Extract into a fixed scratch path, never a path supplied by the ZIP.
+    sub _gcjavVerifyZipMembers
+    {
+        my ($self, $zip) = @_;
+        my $dir = tempdir('javkt9-zipcheck-XXXXXX', TMPDIR => 1, CLEANUP => 0);
+        my $scratch = File::Spec->catfile($dir, 'member-check');
+        my $ok = eval {
+            for my $member ($zip->members)
+            {
+                next if $member->isDirectory;
+                die "No se pudo validar: ".$member->fileName
+                    if $member->extractToFileNamed($scratch) != AZ_OK;
+                unlink($scratch) or die "No se pudo borrar el temporal de validacion";
+            }
+            1;
+        };
+        my $error = $@;
+        rmtree($dir);
+        return ($ok ? 1 : 0, $error);
+    }
+
     sub gcjavCreateBackup
     {
         my $self = shift;
@@ -1956,8 +1978,12 @@ $@");
         # RC2: reopen and verify the written archive before considering it
         # a successful backup or pruning any older, known-good backups.
         my $verify = Archive::Zip->new();
-        if ($verify->read(localName($zipFile)) != AZ_OK
-            || $verify->testArchive() != AZ_OK
+        my ($verified, $verifyError) = (0, '');
+        if ($verify->read(localName($zipFile)) == AZ_OK)
+        {
+            ($verified, $verifyError) = $self->_gcjavVerifyZipMembers($verify);
+        }
+        if (!$verified
             || scalar(grep { $_->fileName eq basename($collection) }
                       $verify->members) != 1)
         {
@@ -2076,12 +2102,11 @@ $@");
         # RC2 preflight: verify ZIP contents and every cover path BEFORE
         # replacing the catalog. A broken or malicious archive must not
         # leave the collection half-restored.
-        $diag->('ZIP: iniciando testArchive');
-        my $zipTest = eval { $zip->testArchive() };
-        my $zipException = $@;
-        $diag->('ZIP: testArchive=' . (defined $zipTest ? $zipTest : '(indefinido)')
-             . ($zipException ? '; excepcion=' . $zipException : ''));
-        if ($zipException || !defined($zipTest) || $zipTest != AZ_OK)
+        $diag->('ZIP: iniciando validacion por extraccion');
+        my ($zipVerified, $zipError) = $self->_gcjavVerifyZipMembers($zip);
+        $diag->('ZIP: validacion=' . ($zipVerified ? 'correcta' : 'fallo')
+             . ($zipError ? '; error=' . $zipError : ''));
+        if (!$zipVerified)
         {
             $self->_gcjavInfo('error',
                 "El respaldo ZIP esta danado o incompleto.\nNo se modifico la coleccion.");
