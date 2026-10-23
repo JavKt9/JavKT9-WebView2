@@ -2077,9 +2077,11 @@ $@");
         # replacing the catalog. A broken or malicious archive must not
         # leave the collection half-restored.
         $diag->('ZIP: iniciando testArchive');
-        my $zipTest = $zip->testArchive();
-        $diag->('ZIP: testArchive=' . (defined $zipTest ? $zipTest : '(indefinido)'));
-        if ($zipTest != AZ_OK)
+        my $zipTest = eval { $zip->testArchive() };
+        my $zipException = $@;
+        $diag->('ZIP: testArchive=' . (defined $zipTest ? $zipTest : '(indefinido)')
+             . ($zipException ? '; excepcion=' . $zipException : ''));
+        if ($zipException || !defined($zipTest) || $zipTest != AZ_OK)
         {
             $self->_gcjavInfo('error',
                 "El respaldo ZIP esta danado o incompleto.\nNo se modifico la coleccion.");
