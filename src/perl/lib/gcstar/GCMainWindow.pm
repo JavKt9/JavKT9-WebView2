@@ -2041,6 +2041,7 @@ $@");
 
         $diag->('ZIP leido correctamente');
         my @gcs = grep { $_->fileName =~ /^[^\/\\]+\.gcs$/i } $zip->members;
+        $diag->('GCS encontrados=' . scalar(@gcs));
         if (!@gcs)
         {
             $self->_gcjavInfo('error', "El ZIP no contiene una colección .gcs válida.");
@@ -2050,6 +2051,7 @@ $@");
         # Older ZIP backups have no favorites: keep current favorites unchanged.
         my @favMembers = grep { $_->fileName eq 'JavKT9/person-favorites.json' }
                          $zip->members;
+        $diag->('FAVORITOS en ZIP=' . scalar(@favMembers));
         if (@favMembers > 1 || (@favMembers && $favMembers[0]->isDirectory))
         {
             $self->_gcjavInfo('error', "El backup contiene favoritos duplicados o invalidos.");
@@ -2066,6 +2068,7 @@ $@");
         my $favTarget = $favDir ? localName(
             File::Spec->catfile($favDir, 'person-favorites.json')) : undef;
 
+        $diag->('FAVORITOS: prevalidacion superada');
         my $collection = $self->{options}->file;
         my $collectionDir = dirname($collection);
         my $imagesDir = $self->getImagesDir;
@@ -2073,18 +2076,23 @@ $@");
         # RC2 preflight: verify ZIP contents and every cover path BEFORE
         # replacing the catalog. A broken or malicious archive must not
         # leave the collection half-restored.
-        if ($zip->testArchive() != AZ_OK)
+        $diag->('ZIP: iniciando testArchive');
+        my $zipTest = $zip->testArchive();
+        $diag->('ZIP: testArchive=' . (defined $zipTest ? $zipTest : '(indefinido)'));
+        if ($zipTest != AZ_OK)
         {
             $self->_gcjavInfo('error',
                 "El respaldo ZIP esta danado o incompleto.\nNo se modifico la coleccion.");
             return;
         }
+        $diag->('ZIP: integridad verificada; comprobando cantidad .gcs');
         if (@gcs != 1)
         {
             $self->_gcjavInfo('error',
                 "El respaldo debe contener una unica coleccion .gcs.");
             return;
         }
+        $diag->('ZIP: cantidad .gcs valida; comprobando rutas de caratulas, dir=' . ($imagesDir || '(ninguno)'));
         if ($imagesDir)
         {
             my $imgBase = basename($imagesDir);
