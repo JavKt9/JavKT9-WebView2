@@ -1979,6 +1979,18 @@ $@");
     sub gcjavRestoreBackup
     {
         my $self = shift;
+        # RC2 temporary diagnostic: append progress without changing restore logic.
+        my $diagFile = File::Spec->catfile($ENV{TEMP} || File::Spec->tmpdir(),
+                                         'JavKT9-RC2-restore-diagnostico.log');
+        my $diag = sub {
+            my ($message) = @_;
+            eval {
+                open(my $log, '>>', $diagFile) or die $!;
+                print {$log} scalar(localtime())." | $message\n";
+                close($log);
+            };
+        };
+        $diag->('INICIO: archivo=' . ($self->{options}->file || '(ninguno)'));
         if (!$self->{options}->file)
         {
             $self->_gcjavInfo('warning', "Abre primero la colección que quieres restaurar.");
@@ -1997,6 +2009,7 @@ $@");
         my $resp = $dlg->run;
         my $zipFile = ($resp eq 'ok') ? $dlg->get_filename : undef;
         $dlg->destroy;
+        $diag->('ZIP elegido=' . ($zipFile || '(cancelado)'));
         return if !$zipFile;
 
         my $confirm = Gtk3::MessageDialog->new(
@@ -2005,14 +2018,19 @@ $@");
         );
         my $ans = $confirm->run;
         $confirm->destroy;
+        $diag->('CONFIRMACION: respuesta=' . (defined $ans ? $ans : '(indefinida)'));
         return if $ans ne 'yes';
+        $diag->('CONFIRMACION aceptada; iniciando guardado previo');
 
         # Save pending edits before making the on-disk safety copy.
         # Otherwise reopening the restored collection can trigger
         # checkAndSave and overwrite the just-restored catalog.
         $self->{items}->updateSelectedItemInfoFromPanel;
-        return if !$self->saveList;
+        my $saved = $self->saveList;
+        $diag->('GUARDADO previo: resultado=' . (defined $saved ? $saved : '(indefinido)'));
+        return if !$saved;
         $self->removeUpdatedMark;
+        $diag->('GUARDADO correcto; abriendo ZIP');
 
         my $zip = Archive::Zip->new();
         if ($zip->read(localName($zipFile)) != AZ_OK)
@@ -2021,6 +2039,7 @@ $@");
             return;
         }
 
+        $diag->('ZIP leido correctamente');
         my @gcs = grep { $_->fileName =~ /^[^\/\\]+\.gcs$/i } $zip->members;
         if (!@gcs)
         {
@@ -2086,6 +2105,7 @@ $@");
 
         # RC2: a failed safety copy must abort restoration rather than
         # risking irreversible loss of the current catalog.
+        $diag->('VALIDACION ZIP correcta; destino=' . localName($collection));
         my $pre = localName($collection).'.antes_restaurar';
         if (-f localName($collection) && !copy(localName($collection), $pre))
         {
@@ -2093,6 +2113,8 @@ $@");
                 "No se pudo crear la copia de seguridad previa.\nNo se modifico la coleccion.");
             return;
         }
+
+        $diag->('COPIA PREVIA: completada o no necesaria; ruta=' . $pre);
 
         # RC2 safety: never replace a collection unless its cover-image
         # directory is also present in the archive. Incomplete backups must
@@ -2111,6 +2133,7 @@ $@");
 
         # RC2 transactional restore: stage all files on the same volume
         # before touching the active catalog or cover directory.
+        $diag->('CARATULAS: validacion previa superada; preparando temporales');
         my $stage = eval {
             tempdir('javkt9-restore-XXXXXX', DIR => localName($collectionDir),
                     CLEANUP => 0);
@@ -2212,6 +2235,7 @@ $@");
             }
             1;
         };
+        $diag->('PREPARACION temporales: ' . ($prepared ? 'correcta' : 'FALLO ' . ($@ || 'sin detalle')));
         if (!$prepared)
         {
             my $error = $@ || 'Error al preparar el respaldo';
@@ -2263,6 +2287,7 @@ $@");
             }
             1;
         };
+        $diag->('REEMPLAZO: ' . ($committed ? 'correcto' : 'FALLO ' . ($@ || 'sin detalle')));
         if (!$committed)
         {
             my $error = $@ || 'Error durante la restauracion';
@@ -2312,7 +2337,9 @@ $@");
         # Reload the restored file without running checkAndSave against
         # the old in-memory collection (which could overwrite the restore).
         $self->removeUpdatedMark;
+        $diag->('REAPERTURA: comenzando');
         my $reopened = $self->openFile($collection, 1);
+        $diag->('REAPERTURA: resultado=' . ($reopened ? 'correcto' : 'fallo'));
         if (!$reopened)
         {
             $self->_gcjavInfo('error',
