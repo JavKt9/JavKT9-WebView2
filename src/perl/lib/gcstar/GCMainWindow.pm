@@ -1712,9 +1712,11 @@ $@");
 
     sub openFile
     {
-        my ($self, $filename) = @_;
+        my ($self, $filename, $skipSaveCheck) = @_;
 
-        return if !$self->checkAndSave;
+        # A restore has already saved pending edits before replacing the .gcs.
+        # Do not let the old in-memory collection overwrite that restored file.
+        return if !$skipSaveCheck && !$self->checkAndSave;
         return if (! $filename);
         if (! -r localName($filename))
         {
@@ -2307,9 +2309,19 @@ $@");
         unlink($favOriginal) if $movedFav && -f $favOriginal;
         close($favLock) if $favLock;
 
+        # Reload the restored file without running checkAndSave against
+        # the old in-memory collection (which could overwrite the restore).
+        $self->removeUpdatedMark;
+        my $reopened = $self->openFile($collection, 1);
+        if (!$reopened)
+        {
+            $self->_gcjavInfo('error',
+                "Se restauraron los archivos, pero no se pudo abrir la colección.\n".
+                "Cierra JavKT9 y abre nuevamente el archivo .gcs.");
+            return;
+        }
         $self->_gcjavInfo('info',
-            "Backup restaurado.\n\nGCJav volverá a abrir la colección.");
-        $self->openFile($collection);
+            "Backup restaurado y colección recargada correctamente.");
     }
 
     sub saveAs
