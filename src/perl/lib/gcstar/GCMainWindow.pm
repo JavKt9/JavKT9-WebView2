@@ -2236,12 +2236,14 @@ $@");
                             my $dest = File::Spec->catfile($stagedImages, $rel);
                             if (-d $source)
                             {
-                                mkpath($dest) or die "No se pudo crear carpeta: $dest";
+                                mkpath($dest) unless -d $dest;
+                                die "No se pudo crear carpeta: $dest" unless -d $dest;
                             }
                             elsif (-f $source)
                             {
-                                mkpath(dirname($dest)) or
-                                    die "No se pudo crear carpeta: ".dirname($dest);
+                                mkpath(dirname($dest)) unless -d dirname($dest);
+                                die "No se pudo crear carpeta: ".dirname($dest)
+                                    unless -d dirname($dest);
                                 copy($source, $dest) or
                                     die "No se pudo preservar caratula: $source";
                             }
