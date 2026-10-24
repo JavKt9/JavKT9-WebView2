@@ -3999,6 +3999,21 @@ $@");
 
         $self->{listOptionsPanel}->setView($view);
 
+        # RC2: the plain text list has no configurable list options.
+        # Hide its empty options pane altogether so resizing and restoring
+        # the window cannot expose the inherited "No option" placeholder.
+        # Other list views keep their options panel normally.
+        if ($view == 0)
+        {
+            $self->{listOptionsPanel}->set_no_show_all(1);
+            $self->{listOptionsPanel}->hide;
+        }
+        else
+        {
+            $self->{listOptionsPanel}->set_no_show_all(0);
+            $self->{listOptionsPanel}->show_all;
+        }
+
         $self->setExpandCollapseInContext($self->{itemsView}->couldExpandAll);
 
         if ($self->{listPane})
