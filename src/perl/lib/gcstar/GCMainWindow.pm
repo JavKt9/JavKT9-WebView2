@@ -1943,7 +1943,7 @@ $@");
         if ($favRoot)
         {
             my $favFile = File::Spec->catfile(
-                $favRoot, 'JavKT9-081-RC1-Publica-Publica',
+                $favRoot, 'JavKT9-081-RC2-Prueba',
                 'person-favorites.json');
             if (-f localName($favFile))
             {
@@ -2090,7 +2090,7 @@ $@");
             return;
         }
         my $favDir = $favRoot ? File::Spec->catdir(
-            $favRoot, 'JavKT9-081-RC1-Publica-Publica') : undef;
+            $favRoot, 'JavKT9-081-RC2-Prueba') : undef;
         my $favTarget = $favDir ? localName(
             File::Spec->catfile($favDir, 'person-favorites.json')) : undef;
 

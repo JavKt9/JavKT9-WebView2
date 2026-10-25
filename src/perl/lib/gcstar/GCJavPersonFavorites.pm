@@ -17,7 +17,7 @@ sub new {
     if (!defined $file || !length $file) {
         die 'LOCALAPPDATA/APPDATA is required unless file is provided'
             unless defined $root && length $root;
-        $file = File::Spec->catfile($root, 'JavKT9-081-RC1-Publica-Publica', 'person-favorites.json');
+        $file = File::Spec->catfile($root, 'JavKT9-081-RC2-Prueba', 'person-favorites.json');
     }
     return bless {file => $file}, $class;
 }

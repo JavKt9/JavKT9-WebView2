@@ -507,10 +507,8 @@ $self->{list}->signal_connect('button_press_event' => sub {
                 $selection->select_path($path);
                 $widget->set_cursor($path, undef, 0);
             }
-            if (defined &GCUtils::popupGtkMenu)
-            {
-                GCUtils::popupGtkMenu($self->{parent}->{context}, $event);
-            }
+            $self->{parent}->{context}->popup(
+                undef, undef, undef, undef, $event->button, $event->time);
             return 1;
         });
 
@@ -1221,10 +1219,8 @@ $self->add($self->{list});
                 $selection->select_path($path);
                 $widget->set_cursor($path, undef, 0);
             }
-            if (defined &GCUtils::popupGtkMenu)
-            {
-                GCUtils::popupGtkMenu($self->{parent}->{context}, $event);
-            }
+            $self->{parent}->{context}->popup(
+                undef, undef, undef, undef, $event->button, $event->time);
             return 1;
         });
 
