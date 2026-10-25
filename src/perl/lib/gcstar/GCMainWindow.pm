@@ -1882,6 +1882,21 @@ $@");
         my ($self, $type, $msg) = @_;
         my $d = Gtk3::MessageDialog->new($self, [qw/modal destroy-with-parent/],
                                          $type || 'info', 'ok', $msg);
+        # RC2: mismo encabezado tematico que la ventana principal de JavKT9.
+        # Se aplica solo a avisos de backup/restauracion; no altera sus respuestas.
+        if ($^O =~ /win32/i)
+        {
+            eval {
+                my $header = Gtk3::HeaderBar->new;
+                $header->set_show_close_button(1);
+                $header->set_has_subtitle(0);
+                $header->set_size_request(-1, 36);
+                $header->set_name('GCJavTitleBar');
+                $header->set_title('JavKT9');
+                $d->set_titlebar($header);
+                1;
+            } or warn "RC2: encabezado de aviso no disponible: $@";
+        }
         $d->set_position('center-on-parent');
         $d->run;
         $d->destroy;

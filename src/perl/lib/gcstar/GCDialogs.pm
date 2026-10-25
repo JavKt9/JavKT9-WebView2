@@ -127,6 +127,14 @@ $hasAboutDialog = 0 if $@;
 
         $self->get_content_area->set_border_width($GCUtils::margin);
 
+        # RC2: decoracion compartida para los dialogos de GCModalDialog.
+        # Incluye Importar/Exportar; nunca cambia sus botones ni eventos.
+        eval {
+            require GCJavDialogSkins;
+            GCJavDialogSkins::decorate($self, 'generic');
+            1;
+        } or warn "RC2 generic modal titlebar unavailable: $@";
+
         return $self;
     }
 }
@@ -225,6 +233,13 @@ $hasAboutDialog = 0 if $@;
         }
         my $id = Gtk3::Label->new('Binance Pay ID público: ktemanuel');
         $area->pack_start($id, 0, 0, 2);
+
+        # RC2: usar la misma barra violeta que Acerca de.
+        eval {
+            require GCJavDialogSkins;
+            GCJavDialogSkins::decorate($dialog, 'generic');
+            1;
+        } or warn "RC2 support titlebar unavailable: $@";
 
         $dialog->show_all;
         $dialog->run;

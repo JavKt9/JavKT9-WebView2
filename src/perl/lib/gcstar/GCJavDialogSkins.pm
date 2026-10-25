@@ -75,6 +75,29 @@ sub _css {
       #GCJavAboutDialog #GCJavAboutBrand {
           color: $accent;
       }
+      /* RC2 - estilo comun de dialogs normales (Importar, Exportar, Apoyar...). */
+      #GCJavGenericDialog { background-color: $bg; color: $fg; }
+      #GCJavGenericDialog box, #GCJavGenericDialog grid, #GCJavGenericDialog label {
+          color: $fg;
+      }
+      #GCJavGenericDialog button {
+          background-image: none; background-color: $field;
+          color: $fg; border: 1px solid $border;
+      }
+      #GCJavGenericDialog button:hover {
+          background-color: $hover; color: $accent_text; border-color: $accent;
+      }
+      #GCJavGenericDialog button:active, #GCJavGenericDialog button:checked {
+          background-color: $accent; color: $accent_text;
+      }
+      #GCJavGenericDialog entry, #GCJavGenericDialog combobox,
+      #GCJavGenericDialog spinbutton, #GCJavGenericDialog textview {
+          background-image: none; background-color: $field;
+          color: $fg; border-color: $border;
+      }
+      #GCJavGenericDialog treeview { background-color: $list; color: $fg; }
+      #GCJavGenericDialog treeview header button { background-color: $panel; color: $fg; }
+      #GCJavGenericDialog notebook > header { background-color: $panel; }
       #GCJavDialogTitleBar {
           background-image: none; background-color: $accent;
           color: $accent_text; border: 0;
@@ -117,6 +140,7 @@ sub decorate {
     return unless $dialog;
     my $id = $kind eq 'preview' ? 'GCJavPreviewDialog'
            : $kind eq 'about'   ? 'GCJavAboutDialog'
+           : $kind eq 'generic' ? 'GCJavGenericDialog'
                                 : 'GCJavFavoritesDialog';
     $dialog->set_name($id);
 
@@ -129,13 +153,24 @@ sub decorate {
             $header->set_has_subtitle(0);
             $header->set_size_request(-1, 36);
             $header->set_name('GCJavDialogTitleBar');
-            $header->set_title($kind eq 'preview' ? 'Vista previa de película'
-                               : $kind eq 'about' ? 'Acerca de JAVkt9'
-                                                  : 'Favoritos de personas');
+            # RC2-UNIFIED-TITLEBARS: mismo encabezado, titulo real de cada ventana.
+            my $header_title = $kind eq 'preview' ? 'Vista previa de película'
+                             : $kind eq 'about' ? 'Acerca de JAVkt9'
+                             : $kind eq 'generic' ? ($dialog->get_title || 'JavKT9')
+                             : 'Favoritos de personas';
+            $header->set_title($header_title);
             $dialog->set_titlebar($header);
             $dialog->{gcjavSkinTitlebar} = $header;
             1;
         } or warn "P11.8 custom dialog titlebar not available: $@";
+    }
+    # Si la ventana cambia de titulo (p.ej. Import [CSV]), actualizar el HeaderBar.
+    if ($kind eq 'generic' && $dialog->{gcjavSkinTitlebar}) {
+        eval {
+            my $title = $dialog->get_title;
+            $dialog->{gcjavSkinTitlebar}->set_title($title)
+                if defined($title) && length($title);
+        };
     }
     eval { _apply($dialog); 1 }
         or warn "P11.8 dialog colors not available: $@";

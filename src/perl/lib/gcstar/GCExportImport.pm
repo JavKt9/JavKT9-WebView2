@@ -113,6 +113,12 @@ use GCDialogs;
     sub show
     {
         my $self = shift;
+        # RC2: sincronizar titulo [CSV], [HTML] y skin antes de mostrar.
+        eval {
+            require GCJavDialogSkins;
+            GCJavDialogSkins::decorate($self, 'generic');
+            1;
+        } or warn "RC2 import/export titlebar unavailable: $@";
         $self->SUPER::show();
         $self->show_all;
         
