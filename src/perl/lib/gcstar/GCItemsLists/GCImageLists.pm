@@ -1317,8 +1317,11 @@ my $timeOutBetweenEnhancements = 50;
         my $parent = $self->{parent};
 
         my $size = $self->{preferences}->listImgSize;
-        $self->{style}->{withAnimation} = $self->{preferences}->animateImgList;
-        $self->{style}->{withImage} = $self->{preferences}->listBgPicture;
+        # RC3: Biblioteca no debe depender de los skins antiguos ni
+        # sobrescribir las preferencias que usan Texto/Imagen/Detallada.
+        my $rc3Library = $self->isa('GCLibraryList');
+        $self->{style}->{withAnimation} = $rc3Library ? 0 : $self->{preferences}->animateImgList;
+        $self->{style}->{withImage} = $rc3Library ? 0 : $self->{preferences}->listBgPicture;
         $self->{style}->{useOverlays} = ($self->{preferences}->useOverlays) && ($parent->{model}->{collection}->{options}->{overlay}->{image});        
         $self->{preferences}->listImgSkin($GCStyle::defaultList) if ! $self->{preferences}->exists('listImgSkin');
         $self->{style}->{skin} = $self->{preferences}->listImgSkin;
@@ -1413,7 +1416,9 @@ my $timeOutBetweenEnhancements = 50;
         # Default value for align
         $self->{style}->{groupAlign} = 'center';
 
-        my @colors = split m/,/, $self->{preferences}->listFgColor;
+        my @colors = $rc3Library
+                   ? (16448, 35980, 56540)
+                   : split(m/,/, $self->{preferences}->listFgColor);
         ($colors[0], $colors[1], $colors[2]) = (65535, 65535, 65535) if !@colors;
         my $red   = int($colors[0] / 257);
         my $green = int($colors[1] / 257);
@@ -1464,8 +1469,12 @@ my $timeOutBetweenEnhancements = 50;
         }
         else
         {
-            $self->{style}->{inactiveBg} = GCUtils::getColor($self->{preferences}->listBgColor, 'white');
-            $self->{style}->{activeBg} = GCUtils::getColor($self->{preferences}->listFgColor, 'black');
+            $self->{style}->{inactiveBg} = GCUtils::getColor(
+                $rc3Library ? '4112,8224,13364' : $self->{preferences}->listBgColor, 'white'
+            );
+            $self->{style}->{activeBg} = GCUtils::getColor(
+                $rc3Library ? '16448,35980,56540' : $self->{preferences}->listFgColor, 'black'
+            );
             $self->{mainList}->get_parent->override_background_color('normal', $self->{style}->{inactiveBg});
             $self->{mainList}->get_parent->override_background_color('active', $self->{style}->{inactiveBg});
             $self->{mainList}->get_parent->override_background_color('prelight', $self->{style}->{inactiveBg});
