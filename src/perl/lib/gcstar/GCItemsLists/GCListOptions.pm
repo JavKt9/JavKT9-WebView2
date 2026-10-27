@@ -44,8 +44,9 @@ use Gtk3;
             $self->{cancel}->set_sensitive(1);
             $self->{apply}->set_sensitive(1);
     
-            if ($view == 0)
+            if ($view == 0 || $view == 3)
             {
+                # RC3 Biblioteca tiene cabecera propia; no usa el panel legado.
                 $self->{panel} = new GCEmptyOptionsPanel($self->{parent}->{model}->{preferences}, $self->{parent});
                 $self->{cancel}->set_sensitive(0);
                 $self->{apply}->set_sensitive(0);
