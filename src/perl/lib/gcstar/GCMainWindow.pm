@@ -74,6 +74,7 @@ use Gtk3;
 
     use GCItemsLists::GCTextLists;
     use GCItemsLists::GCImageLists;
+    use GCItemsLists::GCLibraryList;
 
     # Pragmas
     use filetest 'access';
@@ -4006,6 +4007,10 @@ $@");
         {
             $self->{itemsView} = new GCImageList($self);
         }
+        elsif ($view == 3)
+        {
+            $self->{itemsView} = new GCLibraryList($self);
+        }
         else
         {
             $self->{itemsView} = new GCDetailedList($self);
@@ -4014,11 +4019,10 @@ $@");
 
         $self->{listOptionsPanel}->setView($view);
 
-        # RC2: the plain text list has no configurable list options.
-        # Hide its empty options pane altogether so resizing and restoring
-        # the window cannot expose the inherited "No option" placeholder.
-        # Other list views keep their options panel normally.
-        if ($view == 0)
+        # RC3: la vista Biblioteca tiene controles propios en su cabecera.
+        # Ocultar el panel heredado sin opciones, igual que la vista Texto.
+        # Imagen y Detallada conservan sus paneles de configuracion.
+        if ($view == 0 || $view == 3)
         {
             $self->{listOptionsPanel}->set_no_show_all(1);
             $self->{listOptionsPanel}->hide;
@@ -4330,6 +4334,11 @@ $@");
         $self->{tmpImageDir} = tempdir(CLEANUP => 1);
 
         $self->{lang} = $GCLang::langs{$self->{options}->lang};
+        # RC3: agregar la vista experimental para cualquier idioma sin
+        # eliminar los valores 0 (Texto), 1 (Imagen), 2 (Detallada).
+        $self->{lang}->{OptionsViews}->{3} =
+            ($self->{options}->lang =~ /^(?:ES|AR)$/i)
+                ? 'Biblioteca (RC3)' : 'Library (RC3)';
 
         if (! $ENV{GCS_PROFILING})
         {
