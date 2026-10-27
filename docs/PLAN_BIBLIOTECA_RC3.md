@@ -56,3 +56,12 @@ Las pruebas de Wood / Luxury Purple Glass / Dark Glass sirvieron para evaluar li
 - [ ] Sustituir la cuadrícula heredada por tarjetas modernas propias e incorporar títulos/códigos legibles, selección y enlace al panel actual.
 - [ ] Añadir búsqueda/filtros y mejorar presentación.
 - [ ] Probar en copia local y aprobar visualmente antes de preparar instalador RC3.
+
+## Primera prueba local (Windows, RC3 independiente)
+- El usuario creó `C:\JavKT9-RC3-Prueba`, incorporó cuatro fuentes RC3 y un lanzador CMD con perfil `JavKT9-081-RC3-Prueba`.
+- Verificó con `perl -c` los cuatro fuentes y todos devolvieron `syntax OK`.
+- La ventana de RC3 abre, pero con barra de título nativa clara. El lanzador CMD no incluye todavía el tratamiento de título nativo del ejecutable RC2.
+- Captura de colección inicial vacía; no se validaron aún tarjetas reales ni selección.
+- Revisión posterior: se separaron los widgets de cabecera en `GCLibraryList.pm` para evitar quitar/reparentar los controles del listado heredado.
+- Corregidas rutas de estado que seguían apuntando al perfil RC1: `GCJavSkins.pm` y logs del Bridge en `GCMainWindow.pm`. Añadido registro si falla el título GTK. Estas correcciones **requieren volver a copiar esos archivos a la copia local RC3**.
+- Próximas comprobaciones: actualizar los tres archivos locales, verificar sintaxis, abrir con una colección de prueba y leer `%APPDATA%\JavKT9-081-RC3-Prueba\gcstar.log` si surgen fallos.
