@@ -193,7 +193,8 @@ use Gtk3;
             $self->set_titlebar($header);
             $self->{gcjavHeaderBar} = $header;
             $self->{gcjavTitlebarCssProvider} = $provider;
-        };
+            1;
+        } or warn "RC3: no se pudo activar la barra de titulo personalizada: $@";
     }
 
     # P11.0: a single screen-wide provider colors all GTK3 dialogs as well.
@@ -4495,7 +4496,7 @@ $@");
             }
         }
 
-        my $stateDir = File::Spec->catdir($ENV{LOCALAPPDATA}||'.','JavKT9-081-RC1-Publica-Publica');
+        my $stateDir = File::Spec->catdir($ENV{LOCALAPPDATA}||'.', ($ENV{JAVKT9_PROFILE_DIR} || 'JavKT9-081-RC1-Publica-Publica'));
         eval { mkpath(localName($stateDir)) if !-d localName($stateDir); };
         my $diag = File::Spec->catfile($stateDir,'JavKT9-bridge-launch.log');
         my $stderr = File::Spec->catfile($stateDir,'JavKT9-bridge-stderr.log');
