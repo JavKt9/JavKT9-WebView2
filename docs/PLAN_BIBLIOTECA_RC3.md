@@ -1,42 +1,50 @@
-# RC3 — Rediseño de la vista Biblioteca (Imagen)
+# RC3 — Nueva vista Biblioteca (diseño tipo catálogo moderno)
 
-## Objetivo
-Mejorar la presentación del catálogo de películas manteniendo la vista Texto (clásica), la vista Detallada y todas las funciones verificadas de RC2.
+## Objetivo acordado
+Implementar una **vista Biblioteca nueva**, inspirada en los bocetos de interfaz tipo catálogo con carátulas y paneles modernos compartidos en la conversación. **NO es simplemente modificar el skin Dark Glass ni recolorear la vista Imagen heredada.**
 
-## Referencias y decisión visual
-Comparación visual de RC2 realizada con los estilos Wood, Luxury Purple Glass y Dark Glass.
+## Resultado esperado
+- **Catálogo principal en cuadrícula adaptable:** tarjetas de carátulas con tamaños consistentes, código/título legibles y espacio bien aprovechado; sin reflejos, texturas de madera ni íconos decorativos desproporcionados.
+- **Cabecera de Biblioteca:** búsqueda accesible y, en una etapa posterior, filtros y ordenación.
+- **Panel de detalle:** seleccionar una película muestra sus datos sin perder de vista el catálogo.
+- **Estética JavKT9:** fondos azul noche, superficies diferenciadas y acentos azules/violetas coherentes con los temas; no replicar el fondo estampado del skin histórico.
+- **Panel de opciones plegable o reubicado:** evitar que los ajustes técnicos ocupen permanentemente el espacio de las carátulas.
+- **Comportamiento familiar:** abrir, seleccionar, editar, menú contextual, favoritos y visualización de datos permanecen disponibles.
 
-- **Base elegida:** Dark Glass: composición oscura sobria, mejor integrada con la interfaz azul de JavKT9.
-- **Evitar:** textura de madera, ornamentación bordó, reflejos bajo las carátulas, acentos verdosos y fondos negros demasiado contrastantes.
-- **Propuesta RC3:** un estilo específico JavKT9 Biblioteca, azul noche, carátulas destacadas, selección visible y controles más discretos.
-- Las capturas de pruebas siguen siendo referencias de diseño; esta especificación no implica que el nuevo estilo esté implementado.
+## Compatibilidad obligatoria
+1. Mantener **Texto (vista clásica)** tal como está.
+2. Mantener **Imagen (vista anterior)** y **Detallada** disponibles, sin reescribirlas para imitar el boceto.
+3. Crear **Biblioteca como nueva opción de visualización**, inicialmente experimental y opcional.
+4. No tocar datos de colecciones, portadas, perfiles, backup/restauración ni las releases RC1/RC2.
+5. Nada de workflows de GitHub Actions.
 
-## Cambios deseados, por orden
-1. Añadir un **estilo nuevo** sin alterar los estilos existentes, cuando dispongamos de los recursos de `list_bg` y la copia de prueba local.
-2. Eliminar la reflexión decorativa en el nuevo estilo (el motor ya contempla `withReflect` en el archivo `style`).
-3. Mejorar fondo, recuadros y estado de selección para que las carátulas sean protagonistas.
-4. Mejorar el uso del ancho disponible y estudiar la posibilidad de plegar el panel lateral de opciones.
-5. Evaluar el icono de portada ausente de forma separada, sin alterar cómo se localizan o guardan las imágenes.
+## Implementación técnica propuesta (en etapas pequeñas)
+1. **Integración básica:** agregar entrada `Biblioteca (RC3)` en selector de vistas y estructura GTK3 propia, sin modificar las vistas existentes. Asegurar selección y apertura de una película.
+2. **Cuadrícula de tarjetas:** usar componentes GTK3 adecuados (por ejemplo, FlowBox dentro de ScrolledWindow), aprovechando caché/rutas de portadas existentes. Manejar títulos largos y carátulas ausentes con un marcador neutro.
+3. **Panel de detalles y navegación:** mostrar/editar el registro seleccionado mediante el panel existente; conservar controles y menú contextual.
+4. **Búsqueda/filtros y opciones:** integrar con el modelo y búsqueda actuales antes de crear lógicas nuevas. Dar prioridad al catálogo y permitir esconder opciones.
+5. **Acabado visual:** espaciados, estados de foco/selección, contraste, distintos tamaños de ventana y coherencia con los temas.
+6. **Pruebas locales:** colección de prueba sin datos personales; comprobar alternar vistas, selección, menús, guardado y reinicio.
 
-## Código identificado
-- `src/perl/lib/gcstar/GCItemsLists/GCImageLists.pm`: carga del estilo, tamaño, columnas, fondo y reflexión.
-- `src/perl/lib/gcstar/GCItemsLists/GCImageListComponents.pm`: composición de carátulas y superposiciones.
-- `src/perl/lib/gcstar/GCItemsLists/GCListOptions.pm`: panel de opciones de visualización.
-- `src/perl/lib/gcstar/GCStyle.pm`: descubrimiento de estilos `list_bg`.
+## Código existente identificado
+- `src/perl/lib/gcstar/GCMainWindow.pm`: crea la vista según `options->view`.
+- `src/perl/lib/gcstar/GCMenu.pm`: selector de vistas en barra.
+- `src/perl/lib/gcstar/GCItemsLists/GCImageLists.pm`: vista Imagen existente y tratamiento de carátulas.
+- `src/perl/lib/gcstar/GCItemsLists/GCImageListComponents.pm`: composición/caché de imágenes.
+- `src/perl/lib/gcstar/GCItemsLists/GCTextLists.pm`: vista clásica que se debe conservar.
+- `src/perl/lib/gcstar/GCItemsLists/GCListOptions.pm`: opciones según la vista.
+- `src/perl/lib/gcstar/GCLang/ES/GCstar.pm` y otros idiomas: etiquetas de vistas.
 
-**Dependencia pendiente:** los recursos gráficos de `list_bg` no están presentes en el árbol fuente de esta rama y habrá que recuperarlos del paquete local de pruebas, sin incluir datos personales.
+**Advertencia:** el árbol de código en GitHub no es una copia íntegra del instalador listo para compilar. Los cambios funcionales deben probarse sobre un entorno local separado de RC2; todavía no hay una implementación Biblioteca RC3 lista para instalar.
 
-## Límites y comprobaciones
-- Desarrollar únicamente en `desarrollo-0.8.1-rc3` y una copia local de prueba separada.
-- No modificar ni volver a publicar las releases RC1/RC2, ni la rama `main`.
-- No ejecutar GitHub Actions.
-- Mantener las vistas Texto y Detallada y las opciones de RC2.
-- No modificar colecciones, perfiles personales, rutas de portadas ni lógica de backup/restauración.
-- Probar nuevo estilo con una colección de prueba y varias carátulas antes de considerarlo listo.
+## No confundir con
+Las pruebas de Wood / Luxury Purple Glass / Dark Glass sirvieron para evaluar limitaciones de la vista actual y la paleta. **Ninguno de esos skins es el diseño final de Biblioteca RC3.**
 
 ## Estado
-- [x] Comparación de estilos y selección de base visual Dark Glass
-- [x] Identificación de módulos relevantes
-- [ ] Recuperar recursos de `list_bg` de la copia de prueba
-- [ ] Implementar nueva variante de estilo
-- [ ] Verificar visualización, selección y cambio de vistas
+- [x] Crear rama `desarrollo-0.8.1-rc3` separada de RC2.
+- [x] Analizar vista Imagen de RC2 y comparar estilos.
+- [x] Corregir alcance: **nueva vista tipo catálogo**, no skin.
+- [ ] Agregar entrada opcional Biblioteca (RC3) sin alterar Texto/Imagen/Detallada.
+- [ ] Implementar cuadrícula, selección y enlace al panel actual.
+- [ ] Añadir búsqueda/filtros y mejorar presentación.
+- [ ] Probar en copia local y aprobar visualmente antes de preparar instalador RC3.
