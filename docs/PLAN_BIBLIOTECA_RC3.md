@@ -35,7 +35,14 @@ Implementar una **vista Biblioteca nueva**, inspirada en los bocetos de interfaz
 - `src/perl/lib/gcstar/GCItemsLists/GCListOptions.pm`: opciones según la vista.
 - `src/perl/lib/gcstar/GCLang/ES/GCstar.pm` y otros idiomas: etiquetas de vistas.
 
-**Advertencia:** el árbol de código en GitHub no es una copia íntegra del instalador listo para compilar. Los cambios funcionales deben probarse sobre un entorno local separado de RC2; todavía no hay una implementación Biblioteca RC3 lista para instalar.
+**Advertencia:** el árbol de código en GitHub no es una copia íntegra del instalador listo para compilar. Los cambios funcionales deben probarse sobre un entorno local separado de RC2. La nueva vista tiene una integración inicial basada en la lista de imágenes existente; **todavía no es la cuadrícula de tarjetas del boceto ni hay instalador RC3 listo para distribuir**.
+
+### Primeros cambios reales en código
+- `GCItemsLists/GCLibraryList.pm`: clase experimental independiente que reutiliza la navegación de imágenes y agrega cabecera.
+- `GCMainWindow.pm`: registro de una cuarta vista (valor 3) sin quitar las tres previas.
+- `GCImageLists.pm`: fondo azul de Biblioteca condicionado a la nueva clase, sin editar preferencias ni skins antiguos.
+- `GCListOptions.pm`: oculta el panel de ajustes heredado cuando se muestra Biblioteca.
+- **Verificación realizada:** se revisaron las referencias entre módulos y la sintaxis Perl de la clase nueva. La aplicación completa aún no se ha probado en Windows.
 
 ## No confundir con
 Las pruebas de Wood / Luxury Purple Glass / Dark Glass sirvieron para evaluar limitaciones de la vista actual y la paleta. **Ninguno de esos skins es el diseño final de Biblioteca RC3.**
@@ -44,7 +51,8 @@ Las pruebas de Wood / Luxury Purple Glass / Dark Glass sirvieron para evaluar li
 - [x] Crear rama `desarrollo-0.8.1-rc3` separada de RC2.
 - [x] Analizar vista Imagen de RC2 y comparar estilos.
 - [x] Corregir alcance: **nueva vista tipo catálogo**, no skin.
-- [ ] Agregar entrada opcional Biblioteca (RC3) sin alterar Texto/Imagen/Detallada.
-- [ ] Implementar cuadrícula, selección y enlace al panel actual.
+- [x] Integrar entrada opcional Biblioteca (RC3) sin alterar Texto/Imagen/Detallada, con cabecera básica, búsqueda incremental heredada, orden y fondo azul noche propios.
+- [ ] Comprobar la integración en Windows con un perfil y directorio de prueba exclusivos de RC3.
+- [ ] Sustituir la cuadrícula heredada por tarjetas modernas propias e incorporar títulos/códigos legibles, selección y enlace al panel actual.
 - [ ] Añadir búsqueda/filtros y mejorar presentación.
 - [ ] Probar en copia local y aprobar visualmente antes de preparar instalador RC3.
