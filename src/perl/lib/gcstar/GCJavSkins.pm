@@ -75,7 +75,8 @@ my $provider;
 my $active = 'Dark Purple';
 
 sub _file {
-    my $home = File::Spec->catdir($ENV{APPDATA} || $ENV{LOCALAPPDATA} || '.', 'JavKT9-081-RC1-Publica-Publica');
+    my $profile = $ENV{JAVKT9_PROFILE_DIR} || 'JavKT9-081-RC1-Publica-Publica';
+    my $home = File::Spec->catdir($ENV{APPDATA} || $ENV{LOCALAPPDATA} || '.', $profile);
     return File::Spec->catfile($home, 'GCJavSkin.conf');
 }
 
