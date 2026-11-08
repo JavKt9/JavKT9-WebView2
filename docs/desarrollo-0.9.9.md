@@ -1,39 +1,45 @@
-# JavKT9 0.9.9 — desarrollo de interfaces
+# JavKT9 0.9.9 — preparación de la versión pública
 
-> **Estado:** en desarrollo, no publicar como versión estable ni como instalador listo para usuarios.
-> **Repositorio principal:** JavKt9/JavKT9-WebView2.
-> **Rama de trabajo:** `desarrollo-0.9.9-interfaces`.
+> **Versión objetivo:** JavKT9 0.9.9.
+> **Estado técnico actual:** candidata en preparación, no etiquetar todavía como final.
+> **Rama:** `desarrollo-0.9.9-interfaces`.
 
-## Objetivo
+## Presentación pública
 
-Una única aplicación y una única instalación actualizable con tres modos de interfaz:
+La próxima versión pública del programa se identificará como **JavKT9 0.9.9**. No se publicarán instaladores intermedios ni se solicitará al usuario realizar pasos por versiones de desarrollo.
 
-- **Clásica:** vistas tradicionales de GCstar, 10 temas previstos/implementados en la rama local.
-- **Moderna V1:** presentación derivada de Biblioteca RC3, 7 temas.
-- **Moderna V2:** presentación KT9V1, 6 temas, incluido Original.
+## Funciones de interfaz de 0.9.9
 
-Las preferencias de color deben ser independientes por modo. El usuario debe poder cambiar el modo desde Apariencia, con aplicación al reiniciar el programa durante esta fase.
+Una única aplicación con tres modos seleccionables y una sola biblioteca:
 
-## Estado de las pruebas locales
+- **Clásica:** distribución tradicional, 10 paletas.
+- **Moderna V1:** diseño de biblioteca moderna de primera generación, 7 paletas.
+- **Moderna V2:** diseño de biblioteca moderna de segunda generación, 6 paletas incluyendo Original.
 
-- La rama local 0.9.9 tiene modificaciones en `GCJavSkins.pm`, `GCMainWindow.pm` y documentación.
-- La sintaxis Perl de los dos primeros módulos fue comprobada localmente.
-- El acceso duplicado a Apariencia en el menú Clásico se retiró en el desarrollo local.
-- **Aún deben sincronizarse los archivos locales más recientes a esta rama de GitHub**, revisar los cambios y validar los tres modos después de reiniciar.
-- No existe todavía un instalador 0.9.9 público validado.
+Cada interfaz conserva su paleta. En la fase actual, el cambio de modo se aplica después de reiniciar la aplicación.
 
-## Criterios de distribución
+## Reglas de instalación y actualización
 
-- La familia de instaladores de JavKT9 debe mantener el mismo `AppId` ya usado por 0.9.7.
-- La instalación pública predeterminada es `C:\Program Files\JavKT9`.
-- Las colecciones, favoritos y preferencias de cada usuario deben permanecer fuera de la carpeta del programa.
-- No subir al repositorio colecciones `.gcs`, perfiles WebView2, archivos de usuario, respaldos ni credenciales.
-- Mantener el aviso de versión experimental y los créditos/licencias de GCstar.
+- Nombre y versión mostrados: **JavKT9 0.9.9**.
+- Ejecutable: `JavKT9.exe`, con metadatos e ícono oficial correctos.
+- Carpeta predeterminada: `C:\Program Files\JavKT9`.
+- Mantener de forma permanente el `AppId` ya establecido para la familia JavKT9. No generar uno nuevo por versión.
+- Las actualizaciones se instalan sobre la misma ubicación sin eliminar bibliotecas `.gcs`, portadas, favoritos o preferencias.
+- La elección inicial entre Clásica, Moderna V1 y Moderna V2 debe ofrecerse solo en instalaciones iniciales. Una actualización debe conservar la preferencia existente.
+- La desinstalación no debe borrar datos personales automáticamente.
 
-## Próximas tareas
+## Control previo a declarar la versión final
 
-1. Sincronizar y revisar los módulos y manual actuales.
-2. Probar el recorrido Clásica → Moderna V1 → Moderna V2 y la persistencia de los temas.
-3. Incorporar la elección inicial de interfaz a Inno Setup sin preguntar otra vez en las actualizaciones.
-4. Probar instalación, actualización y desinstalación preservando datos.
-5. Crear una *pre-release* cuando el candidato esté aprobado.
+1. Sincronizar los fuentes actuales y los manuales con esta rama.
+2. Probar el recorrido Clásica → Moderna V1 → Moderna V2, navegación, temas y persistencia al reiniciar.
+3. Incorporar y comprobar la pantalla de selección inicial en Inno Setup.
+4. Actualizar los metadatos del ejecutable y todos los identificadores visibles a 0.9.9.
+5. Probar instalación limpia, actualización sobre la misma carpeta y desinstalación sin pérdida de datos.
+6. Auditar que ni repositorio ni instalador incluyan colecciones personales, cookies, credenciales, respaldos o registros privados.
+7. Verificar licencias y atribuciones de GCstar y componentes distribuidos.
+
+## Estrategia GitHub
+
+- Mantener `main` sin cambios hasta la aprobación.
+- Subir fuentes revisados, manual y proyecto Inno a esta rama.
+- Crear una release de JavKT9 0.9.9 con instalador y notas claras **solo después** de superar los controles.
