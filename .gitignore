@@ -1,0 +1,53 @@
+# JavKT9 - exclude user data, caches and Windows build artifacts
+# Local user collections and personal media
+*.gcs
+*.gcs.bak
+*.gcs.tmp
+person-favorites.json
+GCJavSkin.conf
+GCJavAppearance099.conf
+gcstar.log
+*.log
+
+# Browser state, credentials and local user profiles
+WebView2/
+WebView2Capture/
+Diagnostics/
+User Data/
+user-data/
+Cookies
+Login Data
+*.lock
+.env
+.env.*
+*.key
+*.pfx
+*.p12
+*.pem
+
+# Historical local backups and downloaded build/runtime archives
+Respaldos/
+Backup/
+Backups/
+Descargas-Codigo-RC3/
+Biblioteca-V*/
+*Prueba*/
+*.bak
+*.old
+*.tmp
+*.zip
+*.7z
+*.rar
+*.exe
+*.msi
+*.msix
+*.dll
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# Intentionally track installer .iss, documentation and source code.
