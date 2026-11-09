@@ -2,7 +2,7 @@
 
 **Gestor de colecciones para Windows, basado en GCstar.**
 
-Esta rama contiene la preparacion de **JavKT9 0.9.9**, la proxima version publica prevista. **No es una descarga final todavia:** el instalador y las pruebas de instalacion/actualizacion siguen pendientes de validacion.
+JavKT9 0.9.9 ya está disponible para Windows en versión preliminar (Pre-release). Incluye tres interfaces personalizables y mejoras en la gestión de colecciones. El instalador fue probado en una actualización existente.
 
 ## Tres interfaces en una sola aplicacion
 
@@ -24,9 +24,11 @@ La seleccion de interfaz y los colores se guardan de manera independiente. Duran
 
 ## Estado y publicacion
 
-**Objetivo:** publicar directamente **JavKT9 0.9.9** cuando pasen las pruebas finales. No hay instalador 0.9.9 disponible para descarga por ahora.
+JavKT9 0.9.9 disponible para descargar.
 
-Pendiente: sincronizar fuentes locales actuales, verificar sintaxis y funcionamiento en Windows, finalizar la eleccion inicial de interfaz en Inno Setup, comprobar instalacion y actualizacion sin perdida de datos, y revisar los metadatos del ejecutable.
+[**DESCARGAR JAVKT9 0.9.9 PARA WINDOWS**](https://github.com/JavKt9/JavKT9-WebView2/releases/tag/v0.9.9)
+
+Esta versión se distribuye como Pre-release mientras se completan las pruebas de instalación limpia.
 
 Consultar [planificacion tecnica de 0.9.9](docs/desarrollo-0.9.9.md).
 
