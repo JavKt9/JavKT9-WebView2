@@ -50,3 +50,9 @@ Los enlaces ahora se abren con un clic sobre la **URL subrayada**; hacer clic en
 Al abrir la ficha emergente de una película, la miniatura de portada resultaba muy pequeña y la barra de título podía no respetar la paleta del programa. Se agregó a `GCDialogs.pm` una mejora exclusiva de `GCItemWindow`: el botón de portada solicita 245 × 225 píxeles y mantiene la escala proporcional del dibujo original. La cabecera utiliza `GCJavTitleBar`, que ya existe en el CSS de las interfaces, y reutiliza el proveedor de estilos del título principal cuando está disponible. Se conservan los botones de diálogo y todas las acciones de la ficha.
 
 Se preparó un ZIP V5 con un aplicador puntual que crea respaldo de `GCDialogs.pm` antes de modificarlo; verifica tres anclajes de la clase original y se niega a cambiar una versión incompatible. No requiere reemplazar los módulos V4. **No se ha validado todavía en Windows** la apariencia del diálogo, su cabecera o su tamaño de portada; el PR sigue siendo borrador.
+
+## Corrección de objetivo: portada del panel principal (V6)
+
+La captura de usuario confirmó que la portada solicitada era la del **panel derecho de la ventana principal**, no la ventana emergente `GCItemWindow`. En V6 se modificó `GCPanel.pm`, al final de `GCItemPanel::createContent`, después de la lectura del layout, comprobando con `Scalar::Util::refaddr` que se trata de `GCFrame->{panel}` y de un `GCFormPanel`. Solo el `GCImageButton` asociado a `commonFields.cover` se ajusta a 235 × 250. `GCItemImage` utiliza `GCUtils::scaleMaxPixbuf` para preservar proporciones. El parche V6 **no modifica barra de título ni tema** y mantiene las demás correcciones V4.
+
+ZIP V6 preparado con un único archivo reemplazable `GCPanel.pm` y las instrucciones de respaldo/restauración. Sintaxis Perl verificada con dependencias GTK simuladas; 2 pruebas de discriminación de panel principal vs ventana emergente aprobadas. **Pendiente validación en Windows**.
