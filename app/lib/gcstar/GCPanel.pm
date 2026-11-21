@@ -32,6 +32,7 @@ use strict;
 use GCDates;
 use File::Basename ();
 use File::Spec ();
+use Scalar::Util ();
 
 {
     package GCItemPanel;
@@ -176,6 +177,26 @@ use File::Spec ();
 
         $self->{displayedValues} = {};
         $self->createLayout($self->{layout}, $self->{layoutBox});
+
+        # JavKT9 0.9.9.1: agrandar SOLO la portada de la ficha principal
+        # (panel derecho de la biblioteca). El dialogo emergente y las
+        # miniaturas de lista conservan sus dimensiones independientes.
+        if ($self->isa('GCFormPanel') && $self->{parent}
+            && $self->{parent}->{panel}
+            && Scalar::Util::refaddr($self) ==
+               Scalar::Util::refaddr($self->{parent}->{panel}))
+        {
+            my $coverField = $self->{model}->{commonFields}->{cover};
+            my $cover = defined($coverField) ? $self->{$coverField} : undef;
+            if ($cover && $cover->isa('GCImageButton'))
+            {
+                # GCImageButton redimensiona tambien su GCItemImage;
+                # el pixbuf mantiene la relacion de aspecto por scaleMaxPixbuf.
+                $cover->setWidth(235);
+                $cover->setHeight(250);
+                $cover->queue_resize;
+            }
+        }
 
         $self->show_all;
     }
