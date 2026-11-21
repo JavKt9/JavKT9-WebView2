@@ -56,3 +56,9 @@ Se preparó un ZIP V5 con un aplicador puntual que crea respaldo de `GCDialogs.p
 La captura de usuario confirmó que la portada solicitada era la del **panel derecho de la ventana principal**, no la ventana emergente `GCItemWindow`. En V6 se modificó `GCPanel.pm`, al final de `GCItemPanel::createContent`, después de la lectura del layout, comprobando con `Scalar::Util::refaddr` que se trata de `GCFrame->{panel}` y de un `GCFormPanel`. Solo el `GCImageButton` asociado a `commonFields.cover` se ajusta a 235 × 250. `GCItemImage` utiliza `GCUtils::scaleMaxPixbuf` para preservar proporciones. El parche V6 **no modifica barra de título ni tema** y mantiene las demás correcciones V4.
 
 ZIP V6 preparado con un único archivo reemplazable `GCPanel.pm` y las instrucciones de respaldo/restauración. Sintaxis Perl verificada con dependencias GTK simuladas; 2 pruebas de discriminación de panel principal vs ventana emergente aprobadas. **Pendiente validación en Windows**.
+
+## V7: evitar deformación de los campos laterales
+
+La validación de usuario del V6 mostró que el tamaño fijo **235 × 250** de la portada alteraba las dimensiones de los campos contiguos (fecha, director y duración). Se elimina la llamada `setHeight(250)` y se mantiene la **altura natural definida por el layout**; el ancho de la portada pasa a **180**. De ese modo la fila deja de forzarse verticalmente. V7 conserva las funciones de lista, títulos y enlaces, y no toca la barra de título. Verificada la sintaxis de `GCPanel.pm` con las dependencias GTK simuladas disponibles en el entorno, así como que V7 solo difiere de V6 en ese bloque. Pendiente comprobar el aspecto en Windows.
+
+Parche V7: reemplazo de un archivo `app/lib/gcstar/GCPanel.pm`, copia de seguridad local manual previa e instrucciones de restauración; no instalador.
