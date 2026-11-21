@@ -26,6 +26,7 @@ use Gtk3;
 use GCBorrowings;
 use GCGraphicComponents::GCWidgets;
 use GCJavModelLinks (); # JavKT9 0.9.9.1 - hipervinculos de modelos
+use GCJavTitleCleanup (); # Limpieza visual sin alterar valores guardados
 
 use strict;
 use GCDates;
@@ -1513,6 +1514,14 @@ use File::Spec ();
         elsif ($info->{type} eq 'short text')
         {
             $widget = new GCShortText;
+            # Distinguir la edicion del usuario del valor dibujado por el panel.
+            if ($info->{value} eq 'original')
+            {
+                $widget->signal_connect('changed' => sub {
+                    $self->{javkt9AltEdited} = 1
+                        unless $self->{javkt9AltSetting};
+                });
+            }
             $widget->signal_connect('activate', sub {
                 # Enter debe usar el mismo proveedor que Descargar y Update.
                 $self->searchItem('gcjav');
@@ -1648,22 +1657,45 @@ use File::Spec ();
             if (GCJavModelLinks::is_model_links_list($info->{value}, $listLabel, $number))
             {
                 my $list = $widget->{list};
-                $list->set_tooltip_text('Clic para abrir en el navegador; el enlace sigue siendo editable.');
-                $list->signal_connect('button-release-event' => sub {
-                    my ($tree, $event) = @_;
-                    return 0 unless $event->button == 1;
-                    my ($path, $column) = $tree->get_path_at_pos($event->x, $event->y);
-                    return 0 unless defined($path) && defined($column);
+                # Mantener visible la URL completa y subrayarla con alto contraste.
+                my ($urlColumn) = $list->get_columns;
+                my ($urlRenderer) = $urlColumn ? $urlColumn->get_cells : ();
+                if ($urlColumn && $urlRenderer)
+                {
+                    my $bg = $self->{styles}->{field}->{bg} || '';
+                    my $color = GCJavModelLinks::link_color_for_background($bg);
+                    $urlColumn->set_cell_data_func($urlRenderer, sub {
+                        my ($column, $cell, $model, $iter) = @_;
+                        my $text = $model->get($iter, 0);
+                        $text = '' if !defined($text);
+                        my $url = GCJavModelLinks::normalize_model_url($text);
+                        if (defined $url)
+                        {
+                            my $selected = eval {
+                                $list->get_selection->iter_is_selected($iter)
+                            } || 0;
+                            $cell->set(text => $text, underline => 'single',
+                                foreground => ($selected ? '#FFFFFF' : $color),
+                                'foreground-set' => 1);
+                        }
+                        else
+                        {
+                            $cell->set(text => $text, underline => 'none',
+                                'foreground-set' => 0);
+                        }
+                    });
+                }
+                $list->set_tooltip_text('Un clic selecciona para editar o quitar. Doble clic abre el enlace en el navegador.');
+                $list->signal_connect('row-activated' => sub {
+                    my ($tree, $path, $column) = @_;
                     my $model = $tree->get_model;
-                    return 0 unless $model;
+                    return unless $model;
                     my $iter = $model->get_iter($path);
-                    return 0 unless $iter;
+                    return unless $iter;
                     my $url = GCJavModelLinks::normalize_model_url($model->get($iter, 0));
-                    return 0 unless defined($url);
+                    return unless defined($url);
                     eval { $self->{parent}->launch($url, 'url'); 1; }
                         or warn "JavKT9: no se pudo abrir enlace de modelo: $@";
-                    # No impedir la seleccion de la fila para editar o quitar.
-                    return 0;
                 });
             }
         }
@@ -1793,9 +1825,44 @@ use File::Spec ();
             *{$AUTOLOAD} = sub {
                 my $self = shift;
                 return 0 if !$self->{$name};
-                return $self->{$name}->getValue
-                    if !(scalar @_);
-                $self->{$name}->setValue(shift);
+                if (!scalar @_)
+                {
+                    # La coleccion conserva su texto original si no se edito.
+                    return $self->{javkt9AltRaw}
+                        if $name eq 'original'
+                        && $self->{javkt9AltRawSet}
+                        && !$self->{javkt9AltEdited};
+                    return $self->{$name}->getValue;
+                }
+                my $value = shift;
+                my $titleField = $self->{model}->{commonFields}->{title} || 'title';
+                my $result;
+                if ($name eq 'original')
+                {
+                    $self->{javkt9AltRaw} = $value;
+                    $self->{javkt9AltRawSet} = 1;
+                    $self->{javkt9AltEdited} = 0;
+                    my $title = $self->{$titleField}
+                        ? $self->{$titleField}->getValue : '';
+                    my $shown = GCJavTitleCleanup::clean_alternative_title($title, $value);
+                    $self->{javkt9AltSetting} = 1;
+                    $result = $self->{$name}->setValue($shown);
+                    $self->{javkt9AltSetting} = 0;
+                }
+                else
+                {
+                    $result = $self->{$name}->setValue($value);
+                    if ($name eq $titleField && $self->{javkt9AltRawSet}
+                        && !$self->{javkt9AltEdited} && $self->{original})
+                    {
+                        my $shown = GCJavTitleCleanup::clean_alternative_title(
+                            $value, $self->{javkt9AltRaw});
+                        $self->{javkt9AltSetting} = 1;
+                        $self->{original}->setValue($shown);
+                        $self->{javkt9AltSetting} = 0;
+                    }
+                }
+                return $result;
             };
         }
         goto &{$AUTOLOAD};
