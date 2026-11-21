@@ -3907,8 +3907,12 @@ $@");
         my ($self, $self2) = @_;
 
         $self = $self2 if $self2;
-        # GCJav: manual local propio.
-        my $manual = File::Spec->catfile($ENV{GCS_SHARE_DIR}, '..', '..', 'docs', 'Manual_GCJav.pdf');
+        # JavKT9 0.9.9.1: priorizar el manual HTML actualizado.
+        # Conservar el PDF anterior como respaldo para instalaciones antiguas.
+        my $docs = File::Spec->catdir($ENV{GCS_SHARE_DIR}, '..', '..', 'docs');
+        my $manual = File::Spec->catfile($docs, 'Manual_JavKT9.html');
+        $manual = File::Spec->catfile($docs, 'Manual_GCJav.pdf')
+            unless -f $manual;
         $self->launch($manual, 'file');
     }
 
