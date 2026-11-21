@@ -163,6 +163,7 @@ use File::Spec ();
 
         $self->{model} = $model;
         $self->{fieldsInfo} = $self->{model}->{fieldsInfo};
+        $self->{javkt9AutoHeightWidgets} = [];
         $self->{toDestroy} = [];
         foreach (@{$model->{fieldsNames}})
         {
@@ -340,6 +341,11 @@ use File::Spec ();
         foreach (@{$self->{formatted}})
         {
             $self->setFormattedLabel($_, 1, $info, $withoutPanel);
+        }
+        if (!$withoutPanel && $self->isa('GCFormPanel'))
+        {
+            $self->_javkt9ResizePersonList($_)
+                foreach (@{$self->{javkt9AutoHeightWidgets} || []});
         }
     }
 
@@ -1617,6 +1623,7 @@ use File::Spec ();
             if ($info->{value} eq 'actors'
                 || GCJavModelLinks::is_model_links_list($info->{value}, $listLabel, $number))
             {
+                push @{$self->{javkt9AutoHeightWidgets}}, $widget;
                 my $model = $widget->{list}->get_model;
                 my $refresh = sub { $self->_javkt9ResizePersonList($widget); };
                 $model->signal_connect('row-inserted' => sub { $refresh->(); });
