@@ -264,7 +264,7 @@ $hasAboutDialog = 0 if $@;
     sub new {
         my ($proto, $parent, $version) = @_;
         my $class = ref($proto) || $proto;
-        my $self = $class->SUPER::new('Acerca de JavKT9 0.9.9', $parent,
+        my $self = $class->SUPER::new('Acerca de JavKT9 0.9.9.1', $parent,
                                       [qw/modal destroy-with-parent/],
                                       'Aceptar' => 'ok');
         bless $self, $class;
@@ -293,7 +293,7 @@ $hasAboutDialog = 0 if $@;
         $area->pack_start(Gtk3::Label->new('Gestor de colecciones JAV'), 0, 0, 1);
 
         my $versionLabel = Gtk3::Label->new;
-        $versionLabel->set_markup('<b>JavKT9 0.9.9 (en desarrollo)</b>');
+        $versionLabel->set_markup('<b>JavKT9 0.9.9.1</b>  - Revisión de mantenimiento (en pruebas)');
         $area->pack_start($versionLabel, 0, 0, 5);
 
         my $mods = Gtk3::Label->new;
