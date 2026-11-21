@@ -1501,6 +1501,33 @@ use File::Spec ();
        $self->{parent}->deleteCurrentItem;
     }
 
+    # JavKT9 0.9.9.1: la lista de actores y los enlaces de modelos muestran
+    # tantas filas como contienen, hasta 12 para evitar paneles gigantes.
+    # Afecta solo el tamaño visual, no modifica datos ni selecciones.
+    sub _javkt9ResizePersonList
+    {
+        my ($self, $widget) = @_;
+        return unless $widget && $widget->{list};
+        my $tree = $widget->{list};
+        my $scroll = eval { $tree->get_parent };
+        return unless $scroll && $scroll->isa('Gtk3::ScrolledWindow');
+
+        my $model = eval { $tree->get_model };
+        my $count = $model ? eval { $model->iter_n_children(undef) } : undef;
+        $count = scalar(@{$tree->{data}})
+            if !defined($count) && ref($tree->{data}) eq 'ARRAY';
+        $count = 0 unless defined($count) && $count =~ /^\d+$/;
+
+        # Dos filas como minimo. Mostrar las 5 si hay 5; con mas de
+        # 12 elementos queda disponible la barra de desplazamiento.
+        my $visible = $count < 2 ? 2 : ($count > 12 ? 12 : $count);
+        my $rowHeight = 28;
+        my $headerHeight = 32;
+        my $height = $headerHeight + $visible * $rowHeight + 8;
+        $scroll->set_size_request(-1, $height);
+        $scroll->queue_resize;
+    }
+
     sub createItem
     {
         my ($self, $info) = @_;
@@ -1584,6 +1611,18 @@ use File::Spec ();
                 }
             }
             $widget = new GCMultipleList($self, $number, \@labels, $withHistory, $readonly,0,$typesRef);
+            # Actualizar al abrir otra ficha y al agregar/quitar una fila.
+            # El TreeView pertenece a la lista original: no se reconstruye.
+            my $listLabel = $self->{model}->getDisplayedText($info->{label});
+            if ($info->{value} eq 'actors'
+                || GCJavModelLinks::is_model_links_list($info->{value}, $listLabel, $number))
+            {
+                my $model = $widget->{list}->get_model;
+                my $refresh = sub { $self->_javkt9ResizePersonList($widget); };
+                $model->signal_connect('row-inserted' => sub { $refresh->(); });
+                $model->signal_connect('row-deleted' => sub { $refresh->(); });
+                $refresh->();
+            }
             # P8c: visible star per actress; safe activation uses row-activated.
             if ($info->{value} eq 'actors' && $number >= 1)
             {
