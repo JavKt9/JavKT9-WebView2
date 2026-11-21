@@ -1527,9 +1527,12 @@ use File::Spec ();
         # Dos filas como minimo. Mostrar las 5 si hay 5; con mas de
         # 12 elementos queda disponible la barra de desplazamiento.
         my $visible = $count < 2 ? 2 : ($count > 12 ? 12 : $count);
-        my $rowHeight = 28;
-        my $headerHeight = 32;
-        my $height = $headerHeight + $visible * $rowHeight + 8;
+        # Se reserva espacio extra para la altura real de las filas GTK,
+        # sus bordes y la cabecera en los distintos temas y escalas DPI.
+        # 5 entradas deben caber completas, no quedar parcialmente cortadas.
+        my $rowHeight = 44;
+        my $headerHeight = 44;
+        my $height = $headerHeight + $visible * $rowHeight + 12;
         $scroll->set_size_request(-1, $height);
         $scroll->queue_resize;
     }
@@ -1731,9 +1734,10 @@ use File::Spec ();
                         }
                     });
                 }
-                $list->set_tooltip_text('Un clic selecciona para editar o quitar. Doble clic abre el enlace en el navegador.');
-                $list->signal_connect('row-activated' => sub {
-                    my ($tree, $path, $column) = @_;
+                $list->set_tooltip_text('Un clic sobre el texto abre el enlace; clic en el espacio libre selecciona para editar o quitar.');
+                my $open_model_link = sub {
+                    my ($tree, $path) = @_;
+                    return unless $path;
                     my $model = $tree->get_model;
                     return unless $model;
                     my $iter = $model->get_iter($path);
@@ -1742,6 +1746,47 @@ use File::Spec ();
                     return unless defined($url);
                     eval { $self->{parent}->launch($url, 'url'); 1; }
                         or warn "JavKT9: no se pudo abrir enlace de modelo: $@";
+                };
+                # Un clic abre SOLO si se pulsa sobre el texto del enlace.
+                # En el espacio libre de la fila queda disponible la seleccion
+                # de GTK para modificar o eliminar una entrada sin abrirla.
+                $list->signal_connect('button-release-event' => sub {
+                    my ($tree, $event) = @_;
+                    return 0 unless $event->button == 1;
+                    my ($path, $column) = $tree->get_path_at_pos($event->x, $event->y);
+                    return 0 unless $path && $column;
+                    my $model = $tree->get_model;
+                    return 0 unless $model;
+                    my $iter = $model->get_iter($path);
+                    return 0 unless $iter;
+                    my $text = $model->get($iter, 0);
+                    return 0 unless defined GCJavModelLinks::normalize_model_url($text);
+                    # Medicion real mediante Pango (en px), nunca ancho de fila.
+                    my $text_width = eval {
+                        my $layout = $tree->create_pango_layout($text);
+                        my ($width) = $layout->get_pixel_size;
+                        $width;
+                    };
+                    if (defined($text_width) && $text_width > 0)
+                    {
+                        # El texto empieza con un margen pequeno tras la columna.
+                        my $area = eval { $tree->get_cell_area($path, $column) };
+                        my $left = $area ? eval { $area->{x} } : 0;
+                        $left = 0 unless defined $left;
+                        return 0 if $event->x < $left
+                                 || $event->x > $left + $text_width + 24;
+                    }
+                    $open_model_link->($tree, $path);
+                    return 0; # preservar la seleccion nativa
+                });
+                # Enter tambien abre el enlace de la fila enfocada.
+                $list->signal_connect('key-release-event' => sub {
+                    my ($tree, $event) = @_;
+                    my $key = eval { Gtk3::Gdk->keyval_name($event->keyval) } || '';
+                    return 0 unless $key eq 'Return' || $key eq 'KP_Enter';
+                    my ($path) = $tree->get_cursor;
+                    $open_model_link->($tree, $path) if $path;
+                    return 1;
                 });
             }
         }
