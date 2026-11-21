@@ -25,3 +25,12 @@ No crear instalador, etiqueta, release ni fusionar la rama hasta completar prueb
 perl -c app/lib/gcstar/GCJavTitleCleanup.pm
 perl tests/alternative-title-cleanup.t
 ```
+
+## Ajuste visual posterior a prueba de usuario
+
+La primera prueba en Windows confirmó que abrir las URL funcionaba, pero el texto no se reconocía como hipervínculo y un clic abría el navegador incluso cuando se quería seleccionar la fila.
+
+- **Hipervínculos:** URL completa, subrayado azul (tono adaptado al fondo claro/oscuro), doble clic o Enter abre el navegador. Un clic selecciona para editar o usar Remove.
+- **Títulos alternativos de fichas antiguas:** mostrar el título sin código duplicado, pero conservar el valor original sin reescribir el archivo .gcs hasta que la persona edite ese campo. Los nuevos metadatos importados se normalizan en GCMainWindow.
+- Se generó un segundo ZIP de prueba con `GCPanel.pm`, `GCJavModelLinks.pm` y `GCJavTitleCleanup.pm` (no instalador completo).
+- Se ejecutaron pruebas de Perl de ambos módulos y pruebas simuladas del panel para comprobar tanto el orden de actualización de los campos como la conservación de valores originales. **Falta validar los controles en el GTK de Windows**.
