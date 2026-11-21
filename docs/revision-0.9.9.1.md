@@ -44,3 +44,9 @@ En la prueba de usuario, las secciones `Cast (5)` y `Enlaces de modelos (5)` mos
 Nueva prueba visual del usuario: con dos actrices, la segunda aparecía cortada; con cinco actrices y cinco enlaces, la última fila seguía oculta. El cálculo de alto anterior resultaba insuficiente en esa instalación. Se amplió la reserva por fila a 44 unidades GTK, con cabecera 44 y margen 12, manteniendo el máximo de 12 filas antes del desplazamiento interno. La apariencia final requiere validación en Windows.
 
 Los enlaces ahora se abren con un clic sobre la **URL subrayada**; hacer clic en el espacio vacío del renglón conserva la selección para editar o quitar sin abrir el navegador. Enter sobre la fila enfocada también abre. Prueba sintáctica de Perl realizada con dependencias GTK simuladas; 13 verificaciones locales de la función de altura y helpers superadas. No equivale a la prueba funcional bajo Windows.
+
+## Portada ampliada y cabecera de ficha (V5)
+
+Al abrir la ficha emergente de una película, la miniatura de portada resultaba muy pequeña y la barra de título podía no respetar la paleta del programa. Se agregó a `GCDialogs.pm` una mejora exclusiva de `GCItemWindow`: el botón de portada solicita 245 × 225 píxeles y mantiene la escala proporcional del dibujo original. La cabecera utiliza `GCJavTitleBar`, que ya existe en el CSS de las interfaces, y reutiliza el proveedor de estilos del título principal cuando está disponible. Se conservan los botones de diálogo y todas las acciones de la ficha.
+
+Se preparó un ZIP V5 con un aplicador puntual que crea respaldo de `GCDialogs.pm` antes de modificarlo; verifica tres anclajes de la clase original y se niega a cambiar una versión incompatible. No requiere reemplazar los módulos V4. **No se ha validado todavía en Windows** la apariencia del diálogo, su cabecera o su tamaño de portada; el PR sigue siendo borrador.
