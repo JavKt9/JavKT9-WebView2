@@ -6,7 +6,7 @@ use strict;
 use warnings;
 use Exporter 'import';
 
-our @EXPORT_OK = qw(is_model_links_list normalize_model_url);
+our @EXPORT_OK = qw(is_model_links_list normalize_model_url link_color_for_background);
 
 sub is_model_links_list
 {
@@ -34,6 +34,17 @@ sub normalize_model_url
     $url =~ s/^\s+|\s+$//g;
     return undef unless $url =~ m{\Ahttps?://[^\s<>"']+\z}i;
     return $url;
+}
+
+
+# Elegir un color de enlace legible en temas claros y oscuros.
+sub link_color_for_background
+{
+    my ($bg) = @_;
+    return '#99D9FF' unless defined($bg) && $bg =~ /^#([0-9A-Fa-f]{6})$/;
+    my @rgb = map { hex($_) } ($1 =~ /(..)(..)(..)/);
+    my $luminance = (0.2126 * $rgb[0] + 0.7152 * $rgb[1] + 0.0722 * $rgb[2]);
+    return $luminance > 155 ? '#155DB7' : '#99D9FF';
 }
 
 1;
