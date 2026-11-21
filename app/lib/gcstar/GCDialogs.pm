@@ -1451,6 +1451,32 @@ $hasAboutDialog = 0 if $@;
     
     use GCGraphicComponents::GCWidgets;
 
+    # JavKT9 0.9.9.1: la ficha emergente usa el mismo estilo de
+    # cabecera que la ventana principal. No cambia las acciones del dialogo.
+    sub _javkt9MatchTitlebar
+    {
+        my ($self, $parent) = @_;
+        eval {
+            my $header = $self->get_titlebar;
+            if (!$header || !$header->isa('Gtk3::HeaderBar'))
+            {
+                $header = Gtk3::HeaderBar->new;
+                $header->set_show_close_button(1);
+                $header->set_size_request(-1, 36);
+                $self->set_titlebar($header);
+            }
+            $header->set_name('GCJavTitleBar');
+            # Reutilizar la configuracion adicional del titulo, si existe.
+            if ($parent->{gcjavTitlebarCssProvider})
+            {
+                $header->get_style_context->add_provider(
+                    $parent->{gcjavTitlebarCssProvider}, 600);
+            }
+            $self->{javkt9DetailHeader} = $header;
+            1;
+        } or warn "JavKT9: no se pudo aplicar el titulo de la ficha: $@";
+    }
+
     sub show
     {
         my $self = shift;
@@ -1466,6 +1492,7 @@ $hasAboutDialog = 0 if $@;
         my $class = ref($proto) || $proto;
         my $self = $class->SUPER::new($parent, '', '', 1, @extraButtons);
         bless ($self, $class);
+        $self->_javkt9MatchTitlebar($parent);
         
         $self->set_position('none');
         my $options = new GCOptionLoader;
@@ -1473,6 +1500,16 @@ $hasAboutDialog = 0 if $@;
         $options->file($parent->{options}->file);
         $self->{panel} = new GCFormPanel($parent, $options, $parent->{model}->getDefaultPanel);
         $self->{panel}->createContent($parent->{model});
+
+        # Solo la portada de la ficha emergente; mantener las proporciones
+        # de la imagen y dejar intactas las tarjetas de la biblioteca.
+        my $coverField = $parent->{model}->{commonFields}->{cover};
+        my $coverWidget = defined($coverField) ? $self->{panel}->{$coverField} : undef;
+        if ($coverWidget && $coverWidget->isa('GCImageButton'))
+        {
+            $coverWidget->setWidth(245);
+            $coverWidget->setHeight(225);
+        }
 
         #Init combo boxes
         foreach(@{$parent->{model}->{fieldsHistory}})
