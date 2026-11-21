@@ -24,4 +24,6 @@ is(clean_alternative_title('ACHJ-084', 'A Black Daycare ACHJ-084'),
 is(clean_alternative_title('A Black Daycare', 'ACHJ-084 A Black Daycare'),
    'ACHJ-084 A Black Daycare', 'sin codigo principal no hace suposiciones');
 is(clean_alternative_title('ACHJ-084', undef), undef, 'admite valores vacios');
+is(clean_alternative_title('DANDYA-013', 'DANDYA-013 Ambushing A Beautiful Massage Parlor Girl'),
+   'Ambushing A Beautiful Massage Parlor Girl', 'titulo alternativo del ejemplo del usuario');
 done_testing;
