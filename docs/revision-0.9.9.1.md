@@ -38,3 +38,9 @@ La primera prueba en Windows confirmó que abrir las URL funcionaba, pero el tex
 ## Ajuste de altura de listas (V3)
 
 En la prueba de usuario, las secciones `Cast (5)` y `Enlaces de modelos (5)` mostraban únicamente dos filas y obligaban a usar desplazamiento interno. `GCPanel.pm` ahora ajusta la altura del `Gtk3::ScrolledWindow` de ambas listas según su modelo, con un mínimo de 2 filas y un máximo de 12. Cinco elementos se ven completos; las listas muy largas conservan el desplazamiento. También recalcula al agregar/quitar entradas y al cambiar de ficha, sin modificar el contenido de las colecciones. Se comprobó sintaxis con dependencias GTK simuladas y se ejecutaron 23 pruebas locales de regresión de la revisión, **no equivalentes a una ejecución real en Windows**. ZIP de prueba V3 preparado, sin publicar ni fusionar.
+
+## Ajuste de altura y clic sencillo (V4)
+
+Nueva prueba visual del usuario: con dos actrices, la segunda aparecía cortada; con cinco actrices y cinco enlaces, la última fila seguía oculta. El cálculo de alto anterior resultaba insuficiente en esa instalación. Se amplió la reserva por fila a 44 unidades GTK, con cabecera 44 y margen 12, manteniendo el máximo de 12 filas antes del desplazamiento interno. La apariencia final requiere validación en Windows.
+
+Los enlaces ahora se abren con un clic sobre la **URL subrayada**; hacer clic en el espacio vacío del renglón conserva la selección para editar o quitar sin abrir el navegador. Enter sobre la fila enfocada también abre. Prueba sintáctica de Perl realizada con dependencias GTK simuladas; 13 verificaciones locales de la función de altura y helpers superadas. No equivale a la prueba funcional bajo Windows.
