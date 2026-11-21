@@ -192,8 +192,10 @@ use Scalar::Util ();
             {
                 # GCImageButton redimensiona tambien su GCItemImage;
                 # el pixbuf mantiene la relacion de aspecto por scaleMaxPixbuf.
-                $cover->setWidth(235);
-                $cover->setHeight(250);
+                # Conservar la altura fijada por el layout del modelo:
+                # imponer 250 px agrandaba las filas Date/Director/Length.
+                # Solo ensanchar moderadamente, sin deformar el grid.
+                $cover->setWidth(180);
                 $cover->queue_resize;
             }
         }
