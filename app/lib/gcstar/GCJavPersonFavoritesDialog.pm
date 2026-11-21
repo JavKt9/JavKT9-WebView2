@@ -12,7 +12,22 @@ sub show {
     die 'Favorites store required' unless $store;
     my $dialog = Gtk3::Dialog->new('Favoritos de personas', $parent,
         [qw/modal destroy-with-parent/], 'gtk-close' => 'close');
-    $dialog->set_default_size(740, 620);
+    # JavKT9 0.9.9.1: ventana de favoritos mas comoda y adaptable.
+    # Reservar espacio para la barra de titulo y la barra de tareas de Windows.
+    my ($favWidth, $favHeight) = (980, 740);
+    eval {
+        my $screen = $parent->get_screen;
+        if ($screen) {
+            my ($screenWidth, $screenHeight) = ($screen->get_width, $screen->get_height);
+            $favWidth = $screenWidth - 100 if $screenWidth > 0 && $favWidth > $screenWidth - 100;
+            $favHeight = $screenHeight - 120 if $screenHeight > 0 && $favHeight > $screenHeight - 120;
+        }
+        1;
+    };
+    $favWidth = 620 if $favWidth < 620;
+    $favHeight = 500 if $favHeight < 500;
+    $dialog->set_default_size($favWidth, $favHeight);
+    $dialog->set_resizable(1);
     # P11.6: theme only; safe fallback to stock dialog when styling is unavailable.
     eval {
         require GCJavDialogSkins;
@@ -38,6 +53,7 @@ sub show {
             'Nombre', $renderer, text => 0));
         my $scroll = Gtk3::ScrolledWindow->new;
         $scroll->set_policy('automatic','automatic');
+        $scroll->set_min_content_height(200);
         $scroll->add($view);
         $vbox->pack_start($scroll,1,1,0);
         my $matches_label = Gtk3::Label->new('Seleccioná una persona para ver sus películas en la colección');
@@ -51,7 +67,7 @@ sub show {
         }
         my $films_scroll = Gtk3::ScrolledWindow->new;
         $films_scroll->set_policy('automatic','automatic');
-        $films_scroll->set_min_content_height(130);
+        $films_scroll->set_min_content_height(190);
         $films_scroll->add($films_view);
         $vbox->pack_start($films_scroll,1,1,0);
 
