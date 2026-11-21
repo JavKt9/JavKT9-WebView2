@@ -367,6 +367,28 @@ $hasAboutDialog = 0 if $@;
         $self->{parent} = $parent;
         $self->{windowParent} = $windowParent;
 
+        # JavKT9 0.9.9.1: la ventana "View Picture" usa la misma
+        # barra de titulo personalizada que la ventana principal.
+        if ($^O =~ /(?:win32|cygwin)/i)
+        {
+            eval {
+                my $header = Gtk3::HeaderBar->new;
+                $header->set_show_close_button(1);
+                $header->set_has_subtitle(0);
+                $header->set_title($parent->{lang}->{ImportViewPicture});
+                $header->set_size_request(-1, 36);
+                $header->set_name('GCJavTitleBar');
+                if ($parent->{gcjavTitlebarCssProvider})
+                {
+                    $header->get_style_context->add_provider(
+                        $parent->{gcjavTitlebarCssProvider}, 600);
+                }
+                $self->set_titlebar($header);
+                $self->{javkt9PictureHeader} = $header;
+                1;
+            } or warn "JavKT9: no se pudo colorear la barra de View Picture: $@";
+        }
+
         if (-f localName($file))
         {
             $self->{image} = Gtk3::Image->new;
@@ -381,43 +403,33 @@ $hasAboutDialog = 0 if $@;
             my ($screenWidth, $screenHeight) = ($self->get_screen->get_width, $self->get_screen->get_height);
             my ($pixWidth, $pixHeight) = ($self->{originalPixbuf}->get_width, $self->{originalPixbuf}->get_height);
             
-            # Minimum amount of spacing we want to leave for panels, window decorations, borders, etc
-            my $heightMargin = 150;
-            my $widthMargin = 30;
-            
-            my $ratio = $pixWidth / $pixHeight;
-            
-            # Check if picture will fit into screen, or if we'll need to resize
-            if (($pixHeight > ($screenHeight - $heightMargin)) && ($pixWidth <= ($screenWidth - $widthMargin)))
-            {
-                # Image is higher than vertical space we have available, but not wider
-                $pixHeight = $screenHeight - $heightMargin;
-                $pixWidth = $pixHeight * $ratio;
-            }
-            elsif (($pixHeight <= ($screenHeight - $heightMargin)) && ($pixWidth > ($screenWidth - $widthMargin)))
-            {
-                # Image is wider than horizontal space we have available, but not taller
-                $pixWidth = $screenWidth - $widthMargin;
-                $pixHeight = $pixWidth / $ratio;            
-            }
-            elsif (($pixHeight > ($screenHeight - $heightMargin)) && ($pixWidth > ($screenWidth - $widthMargin)))
-            {
-                # Image is both too high and too wide for space we have, so see which direction will be
-                # affected the most
-                if ($screenHeight - $heightMargin - $pixHeight < $screenWidth - $widthMargin - $pixWidth)
-                {
-                    # Constrained by vertical height
-                    $pixHeight = $screenHeight - $heightMargin;
-                    $pixWidth = $pixHeight * $ratio;               
-                }
-                else
-                {
-                    # Constrained by horizontal width
-                    $pixWidth = $screenWidth - $widthMargin;
-                    $pixHeight = $pixWidth / $ratio;                   
-                }
-            }
-            $self->{image}->get_parent->set_size_request($pixWidth, $pixHeight);
+            # Vista inicial ampliada, limitada por la pantalla. El pixbuf
+            # se ajusta sin deformarse ni ampliarse mas alla de su resolucion.
+            my $maxImageWidth = $screenWidth - 120;
+            my $maxImageHeight = $screenHeight - 230;
+            $maxImageWidth = 800 if $maxImageWidth > 800;
+            $maxImageHeight = 650 if $maxImageHeight > 650;
+            $maxImageWidth = 240 if $maxImageWidth < 240;
+            $maxImageHeight = 200 if $maxImageHeight < 200;
+
+            my $scale = $maxImageWidth / $pixWidth;
+            my $heightScale = $maxImageHeight / $pixHeight;
+            $scale = $heightScale if $heightScale < $scale;
+            $scale = 1 if $scale > 1;
+            my $viewWidth = int($pixWidth * $scale + 0.5);
+            my $viewHeight = int($pixHeight * $scale + 0.5);
+            $viewWidth = 1 if $viewWidth < 1;
+            $viewHeight = 1 if $viewHeight < 1;
+            $self->{image}->get_parent->set_size_request($viewWidth, $viewHeight);
+
+            # El alto total deja sitio a la cabecera y al boton OK.
+            my $dialogWidth = $viewWidth + 24;
+            my $dialogHeight = $viewHeight + 110;
+            $dialogWidth = 480 if $dialogWidth < 480 && $screenWidth >= 600;
+            $dialogHeight = 380 if $dialogHeight < 380 && $screenHeight >= 550;
+            $dialogWidth = $screenWidth - 60 if $dialogWidth > $screenWidth - 60;
+            $dialogHeight = $screenHeight - 80 if $dialogHeight > $screenHeight - 80;
+            $self->{javkt9PictureDialogSize} = [$dialogWidth, $dialogHeight];
         }
         else
         {
@@ -426,7 +438,14 @@ $hasAboutDialog = 0 if $@;
             $self->get_content_area->pack_start($label,1,1,4 * $GCUtils::margin);
         }
         
-        $self->set_default_size(500,500);
+        if ($self->{javkt9PictureDialogSize})
+        {
+            $self->set_default_size(@{$self->{javkt9PictureDialogSize}});
+        }
+        else
+        {
+            $self->set_default_size(500,500);
+        }
 
         return $self;
     }
