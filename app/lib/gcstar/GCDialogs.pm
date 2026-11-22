@@ -293,7 +293,7 @@ $hasAboutDialog = 0 if $@;
         $area->pack_start(Gtk3::Label->new('Gestor de colecciones JAV'), 0, 0, 1);
 
         my $versionLabel = Gtk3::Label->new;
-        $versionLabel->set_markup('<b>JavKT9 0.9.9.1</b>  - Revisión de mantenimiento (en pruebas)');
+        $versionLabel->set_markup("<b>JavKT9 0.9.9.1</b>\n<small>Revisión de mantenimiento (en pruebas)</small>");
         $area->pack_start($versionLabel, 0, 0, 5);
 
         my $mods = Gtk3::Label->new;
