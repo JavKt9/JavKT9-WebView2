@@ -92,3 +92,13 @@ El usuario confirmó que, al cerrar JavKT9 con el botón X de Windows, una insta
 **Pistas de código revisadas:** `GCMainWindow.pm` conecta `delete_event` con `beforeDestroy`, que ejecuta `leave`; una salida correcta debe llegar al `destroy` y a `Gtk3->main_quit`. Asimismo, `gcjavEnsureBridge` puede iniciar `GCJavLibraryBridge.pl` mediante Perl y `gcjavStartBridgeAsync` puede lanzar el Bridge de forma independiente; el flujo de cierre no evidencia una parada explícita de estos servicios. Se requiere identificar el PID, la línea de comandos y el estado del puerto 53118 **después del cierre** para determinar la causa real.
 
 Se preparó un ZIP diagnóstico **solo de lectura** que lista los procesos `perl.exe`/`perlw.exe`/`gcstar.exe`/`JavKT9.exe` y el propietario del puerto 53118. No elimina ni detiene procesos, y guarda un reporte `JavKT9_diagnostico_procesos.txt` en el Escritorio. Esperar ese reporte antes de diseñar la corrección de cierre para 0.9.9.1. Mientras tanto, el parche de manual y Acerca de cancela la instalación si detecta la aplicación aún activa, evitando actualizar archivos en uso.
+
+## V11: primera prueba de cierre cooperativo del Bridge
+
+**Diagnóstico confirmado por el usuario (22-11-2026, 15:11 -03):** tras cerrar JavKT9 con X seguía activo un `perl.exe` PID 24360, ejecutando `C:\\Program Files\\JavKT9\\app\\lib\\gcstar\\GCPlugins\\GCfilms\\GCJavLibraryBridge.pl`, con el puerto `127.0.0.1:53118` asociado a ese PID. No es un Perl genérico: es el servicio auxiliar de metadatos del programa.
+
+En `GCMainWindow.pm`, `leave` no solicitaba apagar ese servicio. La prueba V11 añade una petición de apagado **después** de guardar preferencias/datos y antes de destruir la ventana; solo cuando el servicio en puerto 53118 identifica `bridge_version` en `/version`, envía `/shutdown`. La lectura del socket tiene tiempo acotado y no se utiliza `taskkill` ni se finalizan procesos por nombre. El proceso principal puede cerrar incluso si el Bridge no responde.
+
+**Advertencia:** la fuente instalada `GCJavLibraryBridge.pl` no está versionada en este repositorio. Se desconoce si su `/shutdown` está implementado. La V11 es una prueba conservadora, **no una corrección validada**. Si tras probar sigue existiendo el proceso Perl, solicitar la copia de ese `.pl` y reparar el cierre desde el propio servicio, sin matar PID arbitrarios.
+
+ZIP V11 con aplicador PowerShell/CMD que afecta solo `GCMainWindow.pm` y crea copia local con fecha antes de escribir. Sintaxis de las rutinas Perl del parche verificada en entorno local; falta prueba funcional en Windows. No publicar ni fusionar antes de verificar cierre y reabrir la aplicación.
