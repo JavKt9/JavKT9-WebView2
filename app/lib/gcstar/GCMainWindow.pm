@@ -4970,7 +4970,7 @@ $@");
                 last unless $bytes;
                 $reply .= $chunk;
                 last if length($reply) >= 8192;
-                last if $reply =~ /"bridge_version"\s*:/i;
+                last if $reply =~ /"bridge_version"\s*:\s*"[^"]+"/i;
             }
             close $socket;
             1;
