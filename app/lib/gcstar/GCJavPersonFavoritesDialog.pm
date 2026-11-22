@@ -12,20 +12,32 @@ sub show {
     die 'Favorites store required' unless $store;
     my $dialog = Gtk3::Dialog->new('Favoritos de personas', $parent,
         [qw/modal destroy-with-parent/], 'gtk-close' => 'close');
-    # JavKT9 0.9.9.1: ventana de favoritos mas comoda y adaptable.
-    # Reservar espacio para la barra de titulo y la barra de tareas de Windows.
-    my ($favWidth, $favHeight) = (980, 740);
+    # JavKT9 0.9.9.1 V10: adaptar el tamaño inicial al monitor.
+    # La V9 usaba 980x740 como techo: en pantallas 4K quedaba muy chica.
+    my ($favWidth, $favHeight) = (1200, 850);
     eval {
         my $screen = $parent->get_screen;
         if ($screen) {
-            my ($screenWidth, $screenHeight) = ($screen->get_width, $screen->get_height);
-            $favWidth = $screenWidth - 100 if $screenWidth > 0 && $favWidth > $screenWidth - 100;
-            $favHeight = $screenHeight - 120 if $screenHeight > 0 && $favHeight > $screenHeight - 120;
+            my ($screenWidth, $screenHeight) =
+                ($screen->get_width, $screen->get_height);
+            if ($screenWidth > 0 && $screenHeight > 0) {
+                # Preferir ~65% del ancho y ~73% del alto disponible.
+                # Evitar ventanas gigantes incluso en monitores muy grandes.
+                $favWidth = int($screenWidth * 0.65);
+                $favHeight = int($screenHeight * 0.73);
+                $favWidth = 2000 if $favWidth > 2000;
+                $favHeight = 1350 if $favHeight > 1350;
+                $favWidth = 760 if $favWidth < 760;
+                $favHeight = 560 if $favHeight < 560;
+                # Mantener márgenes para marco y barra de tareas de Windows.
+                my $maxWidth = $screenWidth - 100;
+                my $maxHeight = $screenHeight - 130;
+                $favWidth = $maxWidth if $maxWidth > 0 && $favWidth > $maxWidth;
+                $favHeight = $maxHeight if $maxHeight > 0 && $favHeight > $maxHeight;
+            }
         }
         1;
-    };
-    $favWidth = 620 if $favWidth < 620;
-    $favHeight = 500 if $favHeight < 500;
+    } or warn "JavKT9: no se pudo detectar el monitor para Favoritos: $@";
     $dialog->set_default_size($favWidth, $favHeight);
     $dialog->set_resizable(1);
     # P11.6: theme only; safe fallback to stock dialog when styling is unavailable.
