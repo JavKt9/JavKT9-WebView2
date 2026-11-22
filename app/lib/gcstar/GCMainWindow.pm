@@ -5010,7 +5010,7 @@ $@");
         my $encoded = '';
         eval {
             require URI::Escape;
-            $encoded = URI::Escape::uri_escape($token, '^A-Za-z0-9\\-._~');
+            $encoded = URI::Escape::uri_escape($token);
             1;
         } or do {
             warn "JavKT9 V12: error codificando la clave de sesion.\n";
