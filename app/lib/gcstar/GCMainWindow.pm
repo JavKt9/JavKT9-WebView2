@@ -275,6 +275,11 @@ use Gtk3;
             wait;
         }
         $self->{menubar}->save();
+        # JavKT9 0.9.9.1: el proceso Perl del Bridge puede sobrevivir
+        # al cierre de la ventana. Intentamos su apagado cooperativo
+        # SOLO despues de confirmar que el usuario guardo/salio.
+        eval { $self->gcjavStopBridgeOnExit(); 1; }
+            or warn "JavKT9: no se pudo solicitar cierre del Bridge: $@";
         $self->destroy;
     }
 
@@ -4935,6 +4940,48 @@ $@");
     {
         my $self = shift;
         return $self->gcjavHttpLocal('/ping') =~ /\bOK\b/i ? 1 : 0;
+    }
+
+    # Peticiones locales con limite de lectura. No bloquear la salida
+    # si el Bridge deja de responder o ya se encuentra cerrado.
+    sub _gcjavBridgeRequestOnExit
+    {
+        my ($self, $path) = @_;
+        return '' unless $^O =~ /win32/i;
+        return '' unless defined($path) && $path =~ m{\A/(?:version|shutdown)\z};
+        my $reply = '';
+        eval {
+            require IO::Socket::INET;
+            require IO::Select;
+            my $socket = IO::Socket::INET->new(
+                PeerAddr => '127.0.0.1', PeerPort => 53118,
+                Proto => 'tcp', Timeout => 1
+            );
+            return '' unless $socket;
+            my $request = "GET $path HTTP/1.0\r\n".
+                          "Host: 127.0.0.1\r\nConnection: close\r\n\r\n";
+            print {$socket} $request;
+            if (IO::Select->new($socket)->can_read(0.5))
+            {
+                sysread($socket, $reply, 2048);
+            }
+            close $socket;
+            1;
+        } or warn "JavKT9: solicitud local Bridge fallida: $@";
+        return $reply;
+    }
+
+    sub gcjavStopBridgeOnExit
+    {
+        my ($self) = @_;
+        return 1 unless $^O =~ /win32/i;
+        # Identificar el servicio esperado ANTES de enviar la orden.
+        # Nunca matar un perl.exe por nombre, PID ni numero de puerto.
+        my $versionReply = $self->_gcjavBridgeRequestOnExit('/version');
+        return 1 unless $versionReply =~
+            /"bridge_version"\s*:\s*"\d+(?:\.\d+){1,3}"/i;
+        $self->_gcjavBridgeRequestOnExit('/shutdown');
+        return 1;
     }
 
     sub gcjavEnsureBridge
