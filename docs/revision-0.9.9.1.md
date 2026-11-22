@@ -74,3 +74,9 @@ El ZIP V8 incluye **solo** un aplicador PowerShell/CMD que modifica la clase `GC
 A pedido del usuario, el diálogo de actores y directores favoritos (`GCJavPersonFavoritesDialog.pm`) pasa de tamaño inicial fijo `740 × 620` a `980 × 740` cuando la pantalla lo permite, con límites de tamaño respecto de la resolución y posibilidad de ajustar las dimensiones manualmente. Se aumenta la altura mínima de la lista de personas a 200 y la de películas relacionadas a 190. Los datos del catálogo, favoritos, previsualizaciones y colores del tema no se modifican. La documentación está incorporada al manual HTML y las notas de la revisión.
 
 ZIP V9: aplicador puntual de un único archivo, que guarda respaldo local y rechaza archivos cuyos anclajes no coincidan. **Pendiente prueba visual bajo Windows** en ambas pestañas de favoritos. No publicar todavía.
+
+## V10: Favoritos de personas adaptados a monitores grandes
+
+Una prueba de usuario en pantalla grande mostró que el tamaño inicial V9 (980 × 740) ocupaba aproximadamente una cuarta parte del ancho visible. En V10, el diálogo ajusta sus dimensiones al **65 % del ancho y 73 % del alto** de la pantalla, con límites de **2000 × 1350 px**, márgenes para Windows y tamaño mínimo prudente en pantallas más pequeñas. Se mantiene la capacidad de redimensionar manualmente y no se modifican datos ni funcionalidad de favoritos. Ejemplos estimados: 1920×1080 → 1248×788; 2560×1440 → 1664×1051; 3840×2160 → 2000×1350.
+
+Se preparó ZIP de prueba V10 que cambia únicamente el bloque de dimensionamiento de `GCJavPersonFavoritesDialog.pm` y guarda un respaldo con fecha. El aplicador rechaza instalaciones que no tengan el bloque V9 esperado; no afecta otros componentes. Comprobado que la sustitución de código V9→V10 reproduce exactamente el módulo guardado en esta rama y que los cálculos respetan límites para las resoluciones ensayadas. **Falta validación real en Windows** antes de fusionar o publicar.
