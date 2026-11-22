@@ -102,3 +102,13 @@ En `GCMainWindow.pm`, `leave` no solicitaba apagar ese servicio. La prueba V11 a
 **Advertencia:** la fuente instalada `GCJavLibraryBridge.pl` no está versionada en este repositorio. Se desconoce si su `/shutdown` está implementado. La V11 es una prueba conservadora, **no una corrección validada**. Si tras probar sigue existiendo el proceso Perl, solicitar la copia de ese `.pl` y reparar el cierre desde el propio servicio, sin matar PID arbitrarios.
 
 ZIP V11 con aplicador PowerShell/CMD que afecta solo `GCMainWindow.pm` y crea copia local con fecha antes de escribir. Sintaxis de las rutinas Perl del parche verificada en entorno local; falta prueba funcional en Windows. No publicar ni fusionar antes de verificar cierre y reabrir la aplicación.
+
+## V12: apagado autenticado del Bridge con el protocolo real
+
+El usuario aportó `GCJavLibraryBridge.pl` 2.3.1-webview2-lifecycle (160 líneas aprox.). La causa del fallo V11 fue **doble**: (1) `/shutdown` exige `?key=...` y rechaza la solicitud sin clave con HTTP 403; (2) `/version` devuelve `2.3.1-webview2-lifecycle` y la validación V11 no aceptaba el sufijo. El Bridge acepta la orden solo con `JAVKT9_BRIDGE_SESSION` heredado y mínimo 32 caracteres; al recibirla marca `shutdown_requested`, responde 200 y finaliza su bucle principal.
+
+V12 modifica `GCMainWindow.pm` para detectar ese formato de versión, leer la clave **solo de su variable de entorno**, codificarla para URL y enviar `/shutdown?key=...`. La rutina verifica HTTP 200/403 y registra mensajes sin imprimir ni almacenar la clave. Si el proceso principal no hereda `JAVKT9_BRIDGE_SESSION`, cancela la orden sin reducir la protección del Bridge y deja un aviso en `gcstar.log`. No usa `taskkill` ni terminación de procesos por PID.
+
+Se incorporó al repositorio el `GCJavLibraryBridge.pl` original que faltaba en `app/lib/gcstar/GCPlugins/GCfilms/`. Se verificó **un test funcional real en entorno aislado**: `/version` 200; `/shutdown` sin clave 403; con clave incorrecta 403; con clave válida 200 y el Bridge termina con código 0. El cliente Perl V12 también completó el apagado de ese Bridge real en el entorno de pruebas. El aplicador Windows de V12 respalda `GCMainWindow.pm`, altera solo la rutina V11 y el control de URL, no cambia el Bridge ya instalado ni los archivos `.gcs`.
+
+**Pendiente en Windows:** instalar V12, cerrar una instancia heredada/orfandad de Bridge anterior solo después de verificar su línea de comandos, iniciar JavKT9 normalmente, cerrar con X y repetir diagnóstico. Si persiste: leer el mensaje `JavKT9 V12` en `gcstar.log` para distinguir token ausente de sesión rechazada. En ese caso falta el origen del token (`Iniciar-JavKT9.cmd` o launcher), no modificar el contrato autenticado del Bridge.
