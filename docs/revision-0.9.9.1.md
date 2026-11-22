@@ -84,3 +84,11 @@ Se preparó ZIP de prueba V10 que cambia únicamente el bloque de dimensionamien
 ## Manual completo revisado (edición de documentación)
 
 Se revisó el manual HTML histórico y actual de 0.9.9.1 para corregir el número de capítulo a **17** (el capítulo 16 original sigue siendo «Instalación, Acerca de y protección de datos»), clarificar qué es histórico 0.9.9 y qué pertenece a 0.9.9.1, y consignar que Favoritos V10 fue validado en monitor grande. Se generó una edición PDF de consulta con 16 páginas y navegación por marcadores. El PDF se entrega por separado y no ha sido incorporado todavía al instalador o a la rama GitHub como archivo binario. **La ayuda HTML es la fuente oficial integrada en el repositorio**.
+
+## Incidencia pendiente: `perl.exe` permanece tras cerrar con X
+
+El usuario confirmó que, al cerrar JavKT9 con el botón X de Windows, una instancia de `perl.exe` continúa visible en el Administrador de tareas. Por ahora no se sabe si se trata del proceso principal, de un proceso auxiliar del Bridge de JAVLibrary o de un Perl ajeno al proyecto. No se debe terminar indiscriminadamente por nombre.
+
+**Pistas de código revisadas:** `GCMainWindow.pm` conecta `delete_event` con `beforeDestroy`, que ejecuta `leave`; una salida correcta debe llegar al `destroy` y a `Gtk3->main_quit`. Asimismo, `gcjavEnsureBridge` puede iniciar `GCJavLibraryBridge.pl` mediante Perl y `gcjavStartBridgeAsync` puede lanzar el Bridge de forma independiente; el flujo de cierre no evidencia una parada explícita de estos servicios. Se requiere identificar el PID, la línea de comandos y el estado del puerto 53118 **después del cierre** para determinar la causa real.
+
+Se preparó un ZIP diagnóstico **solo de lectura** que lista los procesos `perl.exe`/`perlw.exe`/`gcstar.exe`/`JavKT9.exe` y el propietario del puerto 53118. No elimina ni detiene procesos, y guarda un reporte `JavKT9_diagnostico_procesos.txt` en el Escritorio. Esperar ese reporte antes de diseñar la corrección de cierre para 0.9.9.1. Mientras tanto, el parche de manual y Acerca de cancela la instalación si detecta la aplicación aún activa, evitando actualizar archivos en uso.
