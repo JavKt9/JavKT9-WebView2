@@ -4961,9 +4961,16 @@ $@");
             my $request = "GET $path HTTP/1.0\r\n".
                           "Host: 127.0.0.1\r\nConnection: close\r\n\r\n";
             print {$socket} $request;
-            if (IO::Select->new($socket)->can_read(0.5))
+            my $select = IO::Select->new($socket);
+            for (1..4)
             {
-                sysread($socket, $reply, 2048);
+                last unless $select->can_read(0.25);
+                my $chunk = '';
+                my $bytes = sysread($socket, $chunk, 2048);
+                last unless $bytes;
+                $reply .= $chunk;
+                last if length($reply) >= 8192;
+                last if $reply =~ /"bridge_version"\s*:/i;
             }
             close $socket;
             1;
