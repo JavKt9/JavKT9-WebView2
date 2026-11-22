@@ -1,6 +1,6 @@
 # Novedades y correcciones — JavKT9 0.9.9.1
 
-**Estado:** revisión de mantenimiento en pruebas. Todavía no es una publicación estable ni la versión 1.0.0.
+**Estado:** revisión de mantenimiento en pruebas. Todavía no es una publicación estable ni la versión 1.0.0. La ventana Favoritos V10 fue confirmada por el usuario en su monitor.
 
 La versión 0.9.9 publicada permanece intacta. Los cambios siguientes están preparados en `revision-0.9.9.1` y forman parte del proceso de validación.
 
@@ -23,6 +23,10 @@ La versión 0.9.9 publicada permanece intacta. Los cambios siguientes están pre
 
 ## Documentación
 
-El manual HTML `app/docs/Manual_JavKT9.html` incorpora esta información como **capítulo 16: Novedades y correcciones 0.9.9.1**.
+El manual HTML `app/docs/Manual_JavKT9.html` incorpora esta información como **capítulo 17: Novedades y correcciones 0.9.9.1**.
 
 La versión `0.9.9` de GitHub sigue siendo la última versión publicada mientras se valida esta revisión.
+
+## Edición de manual para consulta
+
+El manual HTML completo del proyecto, ubicado en `app/docs/Manual_JavKT9.html`, se revisó con un capítulo **17** específico para 0.9.9.1, preservando el anexo histórico de 0.9.9 y las imágenes originales. Se preparó también una edición PDF de consulta de 16 páginas, con índice interno y procedimientos actualizados, para entregar al usuario durante las pruebas. El PDF de consulta aún **no forma parte del instalador** ni sustituye al `Manual_GCJav.pdf` histórico del repositorio.
