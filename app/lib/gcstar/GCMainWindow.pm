@@ -4948,7 +4948,10 @@ $@");
     {
         my ($self, $path) = @_;
         return '' unless $^O =~ /win32/i;
-        return '' unless defined($path) && $path =~ m{\A/(?:version|shutdown)\z};
+        return '' unless defined($path) && (
+            $path eq '/version' ||
+            $path =~ m{\A/shutdown\?key=[A-Za-z0-9._~%\-]+\z}
+        );
         my $reply = '';
         eval {
             require IO::Socket::INET;
@@ -4982,13 +4985,53 @@ $@");
     {
         my ($self) = @_;
         return 1 unless $^O =~ /win32/i;
-        # Identificar el servicio esperado ANTES de enviar la orden.
-        # Nunca matar un perl.exe por nombre, PID ni numero de puerto.
+
+        # V12: este Bridge requiere /shutdown?key=<sesion>, nunca
+        # /shutdown sin autenticacion. Usar la sesion heredada del lanzador.
+        # No registrar la clave en disco ni en mensajes de error.
+        my $token = $ENV{JAVKT9_BRIDGE_SESSION} || '';
+        if (length($token) < 32)
+        {
+            warn "JavKT9 V12: no se pudo apagar Bridge: falta clave de sesion en el proceso principal.\n";
+            return 0;
+        }
+
+        # Verificar que el servicio local sea el Bridge esperado. La version
+        # instalada incluye sufijo: 2.3.1-webview2-lifecycle.
         my $versionReply = $self->_gcjavBridgeRequestOnExit('/version');
-        return 1 unless $versionReply =~
-            /"bridge_version"\s*:\s*"\d+(?:\.\d+){1,3}"/i;
-        $self->_gcjavBridgeRequestOnExit('/shutdown');
-        return 1;
+        if ($versionReply !~ m{HTTP/1\.[01]\s+200\b}i
+            || $versionReply !~
+               /"bridge_version"\s*:\s*"\d+(?:\.\d+){1,3}(?:[-._][A-Za-z0-9.-]+)?"/i)
+        {
+            warn "JavKT9 V12: no se pudo identificar el Bridge local.\n";
+            return 0;
+        }
+
+        my $encoded = '';
+        eval {
+            require URI::Escape;
+            $encoded = URI::Escape::uri_escape($token, '^A-Za-z0-9\\-._~');
+            1;
+        } or do {
+            warn "JavKT9 V12: error codificando la clave de sesion.\n";
+            return 0;
+        };
+
+        my $answer = $self->_gcjavBridgeRequestOnExit('/shutdown?key='.$encoded);
+        if ($answer =~ m{HTTP/1\.[01]\s+200\b}i)
+        {
+            warn "JavKT9 V12: cierre del Bridge solicitado correctamente.\n";
+            return 1;
+        }
+        if ($answer =~ m{HTTP/1\.[01]\s+403\b}i)
+        {
+            warn "JavKT9 V12: el Bridge rechazo la sesion (403).\n";
+        }
+        else
+        {
+            warn "JavKT9 V12: el Bridge no confirmo la orden de cierre.\n";
+        }
+        return 0;
     }
 
     sub gcjavEnsureBridge
