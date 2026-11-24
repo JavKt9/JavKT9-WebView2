@@ -1,0 +1,73 @@
+name: JavKT9 0.9.9.1 RC1 — compilacion de prueba (sin CMD)
+
+on:
+  push:
+    branches: ["release/0.9.9.1-rc1"]
+    paths:
+      - "src/JavKT9Launcher/**"
+      - ".github/workflows/compilar-lanzador-0.9.9.1-rc1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compilar:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Descargar codigo fuente
+        uses: actions/checkout@v4
+
+      - name: .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Comprobar ausencia de V11/V12 y arranque con perfil
+        shell: pwsh
+        run: |
+          $gc = Get-Content app/lib/gcstar/GCMainWindow.pm -Raw
+          if ($gc.Contains('gcjavStopBridgeOnExit') -or $gc.Contains('_gcjavBridgeRequestOnExit')) {
+            throw 'No publicar: se detecto codigo V11/V12 en la rama RC1.'
+          }
+          $source = Get-Content src/JavKT9Launcher/Program.cs -Raw
+          if (!$source.Contains('JAVKT9_PROFILE_DIR')) {
+            throw 'El lanzador debe conservar el perfil del CMD original.'
+          }
+          if ($source.Contains('cmd.exe') -or $source.Contains('Iniciar-JavKT9.cmd')) {
+            # A comment mentioning the original CMD is okay; a literal shell launch is not.
+            if ($source -match 'ProcessStartInfo\s*\(\s*"cmd' -or $source -match 'FileName\s*=\s*"cmd') {
+              throw 'No se debe ejecutar cmd.exe.'
+            }
+          }
+
+      - name: Compilar lanzador WinExe desde codigo auditable
+        shell: pwsh
+        run: |
+          dotnet publish src/JavKT9Launcher/JavKT9Launcher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o dist
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo la compilacion del lanzador RC1.' }
+          if (!(Test-Path dist/JavKT9.exe)) { throw 'No existe el ejecutable.' }
+
+      - name: Registrar hash, compilacion sin firma y estado pendiente de icono
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash dist/JavKT9.exe -Algorithm SHA256).Hash
+          "JavKT9.exe SHA256=$hash" | Set-Content dist/SHA256.txt
+          "VERSION=0.9.9.1 RC1 (SOLO PRUEBA, SIN DISTRIBUIR)" | Set-Content dist/LEEME.txt
+          "NO TIENE FIRMA DIGITAL NI ICONO DEFINITIVO. NO ES UN RELEASE." | Add-Content dist/LEEME.txt
+          "NO desactivar SmartScreen ni Defender. NO reemplazar el ejecutable de una instalacion funcional por esta prueba." | Add-Content dist/LEEME.txt
+          "Incluye solo lanzador, no las dependencias Perl ni el instalador completo." | Add-Content dist/LEEME.txt
+          "Commit: $env:GITHUB_SHA" | Add-Content dist/LEEME.txt
+          Write-Output "SHA256=$hash"
+
+      - name: Guardar artefacto privado de prueba (no release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: JavKT9-0.9.9.1-RC1-lanzador-sin-cmd-PRUEBA
+          path: |
+            dist/JavKT9.exe
+            dist/SHA256.txt
+            dist/LEEME.txt
+          retention-days: 7
+          if-no-files-found: error
