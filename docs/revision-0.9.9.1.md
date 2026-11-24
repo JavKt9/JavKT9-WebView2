@@ -127,3 +127,16 @@ El workflow `.github/workflows/build-launcher-recovery-0991.yml` compiló con é
 - El ZIP descargado contiene únicamente `JavKT9.exe`, `SHA256.txt` y `LEEME.txt`. Su integridad se verificó releyendo el ZIP y recalculando SHA-256 en el entorno de trabajo.
 
 **No certificado:** no hubo prueba funcional dentro de la instalación real de Windows ni dictamen de Microsoft sobre el nuevo EXE. Indicaciones: respaldar toda la carpeta del programa y datos .gcs; extraer el ZIP y analizar `JavKT9.exe` con Defender; si no genera alertas y coincide el hash, copiar solo EXE a la instalación (sin sobrescribir `app`, `lib`, `share`, `bin`), y probar. Ante cualquier nueva alerta, detener y no restaurar/excluir. Si la aplicación falla, revisar `%LOCALAPPDATA%\\JavKT9\\JavKT9-launcher-recovery.log`. Mantener PR en borrador, sin publicar actualización.
+
+
+## Recuperación V2: icono y barra nativa por tema (24/11/2026)
+
+Tras iniciar con el ejecutable nuevo .NET el usuario confirmó que funciona, pero detectó falta del icono de marca y falta del color en la barra de título. También mostró preocupación por el aviso SmartScreen en usuarios finales.
+
+La V2 del lanzador incorpora el icono del repositorio \`installer/JavKT9.ico\` como recurso de la compilación, y un componente \`src/JavKT9Launcher/WindowAppearance.cs\`. Este último aplica DWM **solo** al HWND principal del proceso Perl lanzado y que contiene el título \`JavKT9\`, leyendo la paleta actual de \`%APPDATA%\JavKT9\GCJavAppearance099.conf\` (con retrocompatibilidad a \`GCJavSkin.conf\`). Usa \`DWMWA_CAPTION_COLOR=35\`, \`DWMWA_TEXT_COLOR=36\` y \`DWMWA_BORDER_COLOR=34\`, atributos admitidos por Windows 11; puede actualizar el color cuando cambia la paleta. También intenta aplicar el icono instalado \`assets\JavKT9-Logo.ico\` a la ventana GTK. No modifica las bibliotecas de datos, la seguridad de Windows ni el registro.
+
+Compilado desde el código nuevo, Windows GitHub Actions \`https://github.com/JavKt9/JavKT9-WebView2/actions/runs/45370494025\`, éxito y artefacto 14908593781. El ZIP de prueba incluye solo un \`JavKT9.exe\`, \`SHA256.txt\` y \`LEEME.txt\`. SHA256 del EXE: \`6069FFBB98777F1DD3AA0241AC8B75B1279C4AD888C5824A6DF005C38F828AB3\`.
+
+**Sin prueba visual Windows del usuario:** la aplicación puede cambiar la barra cuando GTK o Windows redibujen ventanas o si el proceso dueño de la ventana no coincide. Para diagnosticar, el ejecutable escribe en \`%LOCALAPPDATA%\JavKT9\JavKT9-launcher-recovery.log\` si aplicó DWM o Windows rechazó el atributo. En la primera prueba en Windows, comprobar icono de EXE, icono de ventana y paleta real.
+
+**SmartScreen:** no está resuelto por el cambio visual. El EXE es nuevo, sin firma digital; su reputación puede ser desconocida y mostrar advertencia. No se puede eliminar ese aviso de forma confiable mediante un cambio al código, ni se debe sugerir desactivar SmartScreen/Defender. Para distribuir al usuario final se necesita revisión de seguridad, identidad/publicador verificable, firma digital o empaque Store/MSIX, distribución estable y tiempo para acumular reputación. Una firma por sí sola tampoco garantiza ausencia de advertencia. Mantener borrador sin publicar.
