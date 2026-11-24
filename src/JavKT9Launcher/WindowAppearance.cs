@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -204,9 +205,9 @@ internal static class WindowAppearance
 
     private static string ReadableTextColor(string hex)
     {
-        int r = Convert.ToInt32(hex.AsSpan(1, 2), 16);
-        int g = Convert.ToInt32(hex.AsSpan(3, 2), 16);
-        int b = Convert.ToInt32(hex.AsSpan(5, 2), 16);
+        int r = int.Parse(hex.AsSpan(1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        int g = int.Parse(hex.AsSpan(3, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        int b = int.Parse(hex.AsSpan(5, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
         // Contrast threshold for caption readability.
         return (r * 299 + g * 587 + b * 114) / 1000 >= 145
             ? "#101317" : "#FFFFFF";
@@ -214,9 +215,9 @@ internal static class WindowAppearance
 
     private static int ColorRef(string hex)
     {
-        int r = Convert.ToInt32(hex.AsSpan(1, 2), 16);
-        int g = Convert.ToInt32(hex.AsSpan(3, 2), 16);
-        int b = Convert.ToInt32(hex.AsSpan(5, 2), 16);
+        int r = int.Parse(hex.AsSpan(1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        int g = int.Parse(hex.AsSpan(3, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        int b = int.Parse(hex.AsSpan(5, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
         // Windows COLORREF uses 0x00BBGGRR, unlike RGB hex.
         return r | (g << 8) | (b << 16);
     }
