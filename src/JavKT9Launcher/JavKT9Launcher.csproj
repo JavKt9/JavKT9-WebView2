@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>JavKT9</AssemblyName>
+    <ApplicationIcon>../../installer/JavKT9.ico</ApplicationIcon>
     <RootNamespace>JavKT9Launcher</RootNamespace>
     <ApplicationManifest></ApplicationManifest>
     <Version>0.9.9.1</Version>
