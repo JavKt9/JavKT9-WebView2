@@ -25,6 +25,26 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Preparar icono oficial a partir del logo circular de JavKT9
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check "Pillow==11.3.0"
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar Pillow para crear el icono" }
+          New-Item -ItemType Directory -Path build -Force | Out-Null
+          @'
+          from PIL import Image
+          from pathlib import Path
+          source = Path("app/share/gcstar/Logo_Circular.png")
+          target = Path("build/JavKT9-Logo-Oficial.ico")
+          if not source.is_file():
+              raise SystemExit("Falta el logo circular de JavKT9")
+          with Image.open(source) as logo:
+              image = logo.convert("RGBA")
+              image.save(target, format="ICO", sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
+          print(f"Icono generado: {target} ({target.stat().st_size} bytes)")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo convertir logo circular a ICO" }
+
       - name: Compilar desde fuente un ejecutable nuevo e independiente
         shell: pwsh
         run: |
