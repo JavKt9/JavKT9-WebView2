@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>JavKT9</AssemblyName>
+    <RootNamespace>JavKT9Launcher</RootNamespace>
+    <Version>0.9.9.1-rc.1</Version>
+    <AssemblyVersion>0.9.9.1</AssemblyVersion>
+    <FileVersion>0.9.9.1</FileVersion>
+    <InformationalVersion>0.9.9.1-rc.1</InformationalVersion>
+  </PropertyGroup>
+</Project>
