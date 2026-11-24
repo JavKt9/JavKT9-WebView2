@@ -75,6 +75,7 @@ use Gtk3;
     use GCItemsLists::GCTextLists;
     use GCItemsLists::GCImageLists;
     use GCItemsLists::GCLibraryList;
+    use GCJavTitleCleanup qw(clean_alternative_title);
 
     # Pragmas
     use filetest 'access';
@@ -274,6 +275,11 @@ use Gtk3;
             wait;
         }
         $self->{menubar}->save();
+        # JavKT9 0.9.9.1: el proceso Perl del Bridge puede sobrevivir
+        # al cierre de la ventana. Intentamos su apagado cooperativo
+        # SOLO despues de confirmar que el usuario guardo/salio.
+        eval { $self->gcjavStopBridgeOnExit(); 1; }
+            or warn "JavKT9: no se pudo solicitar cierre del Bridge: $@";
         $self->destroy;
     }
 
@@ -422,6 +428,16 @@ use Gtk3;
         my $info = $plugin->loadUrls($url);
         $self->restoreCursor;
         return if ! $info;
+
+        # 0.9.9.1: limpiar solo el codigo repetido en metadatos de JavLibrary.
+        # No se alteran fichas que ya estan guardadas en el catalogo.
+        if (ref($plugin) =~ /GCPluginJavLibrary/ && ref($info) eq 'HASH'
+            && exists $info->{original})
+        {
+            my $titleField = $self->{model}->{commonFields}->{title} || 'title';
+            $info->{original} = clean_alternative_title(
+                $info->{$titleField}, $info->{original});
+        }
 
         if ($existing)
         {
@@ -1243,6 +1259,16 @@ $@");
                     return;
                 }
             }
+        }
+
+        # 0.9.9.1: el titulo alternativo importado no debe repetir el ID.
+        # Se conserva el dato si no coincide exactamente con el codigo principal.
+        if (ref($plugin) =~ /GCPluginJavLibrary/ && ref($info) eq 'HASH'
+            && exists $info->{original})
+        {
+            my $titleField = $self->{model}->{commonFields}->{title} || 'title';
+            $info->{original} = clean_alternative_title(
+                $info->{$titleField}, $info->{original});
         }
 
         # If we are doing a preview instead of really fetching the data
@@ -3886,8 +3912,12 @@ $@");
         my ($self, $self2) = @_;
 
         $self = $self2 if $self2;
-        # GCJav: manual local propio.
-        my $manual = File::Spec->catfile($ENV{GCS_SHARE_DIR}, '..', '..', 'docs', 'Manual_GCJav.pdf');
+        # JavKT9 0.9.9.1: priorizar el manual HTML actualizado.
+        # Conservar el PDF anterior como respaldo para instalaciones antiguas.
+        my $docs = File::Spec->catdir($ENV{GCS_SHARE_DIR}, '..', '..', 'docs');
+        my $manual = File::Spec->catfile($docs, 'Manual_JavKT9.html');
+        $manual = File::Spec->catfile($docs, 'Manual_GCJav.pdf')
+            unless -f $manual;
         $self->launch($manual, 'file');
     }
 
@@ -4910,6 +4940,98 @@ $@");
     {
         my $self = shift;
         return $self->gcjavHttpLocal('/ping') =~ /\bOK\b/i ? 1 : 0;
+    }
+
+    # Peticiones locales con limite de lectura. No bloquear la salida
+    # si el Bridge deja de responder o ya se encuentra cerrado.
+    sub _gcjavBridgeRequestOnExit
+    {
+        my ($self, $path) = @_;
+        return '' unless $^O =~ /win32/i;
+        return '' unless defined($path) && (
+            $path eq '/version' ||
+            $path =~ m{\A/shutdown\?key=[A-Za-z0-9._~%\-]+\z}
+        );
+        my $reply = '';
+        eval {
+            require IO::Socket::INET;
+            require IO::Select;
+            my $socket = IO::Socket::INET->new(
+                PeerAddr => '127.0.0.1', PeerPort => 53118,
+                Proto => 'tcp', Timeout => 1
+            );
+            return '' unless $socket;
+            my $request = "GET $path HTTP/1.0\r\n".
+                          "Host: 127.0.0.1\r\nConnection: close\r\n\r\n";
+            print {$socket} $request;
+            my $select = IO::Select->new($socket);
+            for (1..4)
+            {
+                last unless $select->can_read(0.25);
+                my $chunk = '';
+                my $bytes = sysread($socket, $chunk, 2048);
+                last unless $bytes;
+                $reply .= $chunk;
+                last if length($reply) >= 8192;
+                last if $reply =~ /"bridge_version"\s*:\s*"[^"]+"/i;
+            }
+            close $socket;
+            1;
+        } or warn "JavKT9: solicitud local Bridge fallida: $@";
+        return $reply;
+    }
+
+    sub gcjavStopBridgeOnExit
+    {
+        my ($self) = @_;
+        return 1 unless $^O =~ /win32/i;
+
+        # V12: este Bridge requiere /shutdown?key=<sesion>, nunca
+        # /shutdown sin autenticacion. Usar la sesion heredada del lanzador.
+        # No registrar la clave en disco ni en mensajes de error.
+        my $token = $ENV{JAVKT9_BRIDGE_SESSION} || '';
+        if (length($token) < 32)
+        {
+            warn "JavKT9 V12: no se pudo apagar Bridge: falta clave de sesion en el proceso principal.\n";
+            return 0;
+        }
+
+        # Verificar que el servicio local sea el Bridge esperado. La version
+        # instalada incluye sufijo: 2.3.1-webview2-lifecycle.
+        my $versionReply = $self->_gcjavBridgeRequestOnExit('/version');
+        if ($versionReply !~ m{HTTP/1\.[01]\s+200\b}i
+            || $versionReply !~
+               /"bridge_version"\s*:\s*"\d+(?:\.\d+){1,3}(?:[-._][A-Za-z0-9.-]+)?"/i)
+        {
+            warn "JavKT9 V12: no se pudo identificar el Bridge local.\n";
+            return 0;
+        }
+
+        my $encoded = '';
+        eval {
+            require URI::Escape;
+            $encoded = URI::Escape::uri_escape($token);
+            1;
+        } or do {
+            warn "JavKT9 V12: error codificando la clave de sesion.\n";
+            return 0;
+        };
+
+        my $answer = $self->_gcjavBridgeRequestOnExit('/shutdown?key='.$encoded);
+        if ($answer =~ m{HTTP/1\.[01]\s+200\b}i)
+        {
+            warn "JavKT9 V12: cierre del Bridge solicitado correctamente.\n";
+            return 1;
+        }
+        if ($answer =~ m{HTTP/1\.[01]\s+403\b}i)
+        {
+            warn "JavKT9 V12: el Bridge rechazo la sesion (403).\n";
+        }
+        else
+        {
+            warn "JavKT9 V12: el Bridge no confirmo la orden de cierre.\n";
+        }
+        return 0;
     }
 
     sub gcjavEnsureBridge

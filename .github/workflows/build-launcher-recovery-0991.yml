@@ -1,0 +1,85 @@
+name: Construir lanzador JavKT9 0.9.9.1 (recuperacion)
+
+on:
+  push:
+    branches:
+      - revision-0.9.9.1
+    paths:
+      - 'src/JavKT9Launcher/**'
+      - '.github/workflows/build-launcher-recovery-0991.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout de la fuente de la revision 0.9.9.1
+        uses: actions/checkout@v4
+
+      - name: Instalar SDK .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Preparar icono oficial a partir del logo circular de JavKT9
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check "Pillow==11.3.0"
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo instalar Pillow para crear el icono" }
+          New-Item -ItemType Directory -Path build -Force | Out-Null
+          @'
+          from PIL import Image
+          from pathlib import Path
+          source = Path("app/share/gcstar/Logo_Circular.png")
+          target = Path("build/JavKT9-Logo-Oficial.ico")
+          if not source.is_file():
+              raise SystemExit("Falta el logo circular de JavKT9")
+          with Image.open(source) as logo:
+              image = logo.convert("RGBA")
+              image.save(target, format="ICO", sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
+          print(f"Icono generado: {target} ({target.stat().st_size} bytes)")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw "No se pudo convertir logo circular a ICO" }
+
+      - name: Compilar desde fuente un ejecutable nuevo e independiente
+        shell: pwsh
+        run: |
+          dotnet publish src/JavKT9Launcher/JavKT9Launcher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o recovery
+          if ($LASTEXITCODE -ne 0) { throw "Falló dotnet publish" }
+          if (!(Test-Path recovery/JavKT9.exe)) { throw "No se generó JavKT9.exe" }
+          $files = Get-ChildItem recovery -File
+          if (@($files | Where-Object Name -ne 'JavKT9.exe').Count -gt 0) {
+            throw "La salida no es un unico ejecutable: $($files.Name -join ', ')"
+          }
+
+      - name: Guardar hash e informacion de compilacion
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash recovery/JavKT9.exe -Algorithm SHA256).Hash
+          "JavKT9.exe  SHA256=$hash" | Set-Content -Path recovery/SHA256.txt -Encoding UTF8
+          $signature = Get-AuthenticodeSignature recovery/JavKT9.exe
+          "Firma digital: $($signature.Status). Un ejecutable sin firma NO se considera automaticamente seguro." |
+            Add-Content -Path recovery/SHA256.txt
+          "Este lanzador usa el Perl instalado en app/bin/perl.exe y el script app/bin/gcstar; no incluye el ejecutable original en cuarentena." |
+            Set-Content -Path recovery/LEEME.txt -Encoding UTF8
+          "No instalar ni ejecutar si Microsoft Defender detecta una amenaza. No desactivar Defender ni agregar exclusiones." |
+            Add-Content -Path recovery/LEEME.txt
+          "Guardar una copia de respaldo de C:\Program Files\JavKT9 y de los datos .gcs antes de sustituir el archivo." |
+            Add-Content -Path recovery/LEEME.txt
+          "Build SHA: $env:GITHUB_SHA" | Add-Content -Path recovery/LEEME.txt
+          Write-Output "SHA256=$hash"
+
+      - name: Subir lanzador experimental, sin publicar release
+        uses: actions/upload-artifact@v4
+        with:
+          name: JavKT9-launcher-0.9.9.1-RECUPERACION-PRUEBA
+          path: |
+            recovery/JavKT9.exe
+            recovery/SHA256.txt
+            recovery/LEEME.txt
+          if-no-files-found: error
+          retention-days: 14
