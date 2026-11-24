@@ -112,3 +112,18 @@ V12 modifica `GCMainWindow.pm` para detectar ese formato de versión, leer la cl
 Se incorporó al repositorio el `GCJavLibraryBridge.pl` original que faltaba en `app/lib/gcstar/GCPlugins/GCfilms/`. Se verificó **un test funcional real en entorno aislado**: `/version` 200; `/shutdown` sin clave 403; con clave incorrecta 403; con clave válida 200 y el Bridge termina con código 0. El cliente Perl V12 también completó el apagado de ese Bridge real en el entorno de pruebas. El aplicador Windows de V12 respalda `GCMainWindow.pm`, altera solo la rutina V11 y el control de URL, no cambia el Bridge ya instalado ni los archivos `.gcs`.
 
 **Pendiente en Windows:** instalar V12, cerrar una instancia heredada/orfandad de Bridge anterior solo después de verificar su línea de comandos, iniciar JavKT9 normalmente, cerrar con X y repetir diagnóstico. Si persiste: leer el mensaje `JavKT9 V12` en `gcstar.log` para distinguir token ausente de sesión rechazada. En ese caso falta el origen del token (`Iniciar-JavKT9.cmd` o launcher), no modificar el contrato autenticado del Bridge.
+
+## Recuperación del ejecutable tras detección de Defender (24/11/2026)
+
+Microsoft Defender puso `C:\\Program Files\\JavKT9\\JavKT9.exe` en cuarentena bajo `Trojan:Win32/Bearfoos.A!ml`. Incluso una copia anterior a V11/V12 quedó bloqueada. El código del ejecutable original no está en el repositorio; **no es posible afirmar que se haya reconstruido el original**. Tampoco restaurar ni excluir la versión detectada sin un dictamen de seguridad.
+
+Se creó un **lanzador nuevo, verificable y de alcance limitado**, en `src/JavKT9Launcher/Program.cs` y `JavKT9Launcher.csproj`. Es un programa .NET 8 WinExe autónomo que ejecuta el Perl empaquetado `app/bin/perl.exe` con `app/bin/gcstar`, hereda el entorno del llamador, establece rutas al runtime y transmite una clave aleatoria de sesión `JAVKT9_BRIDGE_SESSION` a Perl y Bridge para su cierre autenticado. No incluye el ejecutable antiguo, no modifica Perl ni el registro, no usa PowerShell y no toca las colecciones.
+
+El workflow `.github/workflows/build-launcher-recovery-0991.yml` compiló con éxito en GitHub Actions Windows:
+- Run: `https://github.com/JavKt9/JavKT9-WebView2/actions/runs/45366244135`.
+- Artifact de PRUEBA: `JavKT9-launcher-0.9.9.1-RECUPERACION-PRUEBA`, ID 14906847987.
+- SHA-256 del `JavKT9.exe` compilado: `24648D928A0F5DFFDA8E11E093171F85FE6E8E2C322E697715462D07D28843A8`.
+- EXE de ~67,5 MB, .NET8 self-contained single-file, sin firma digital.
+- El ZIP descargado contiene únicamente `JavKT9.exe`, `SHA256.txt` y `LEEME.txt`. Su integridad se verificó releyendo el ZIP y recalculando SHA-256 en el entorno de trabajo.
+
+**No certificado:** no hubo prueba funcional dentro de la instalación real de Windows ni dictamen de Microsoft sobre el nuevo EXE. Indicaciones: respaldar toda la carpeta del programa y datos .gcs; extraer el ZIP y analizar `JavKT9.exe` con Defender; si no genera alertas y coincide el hash, copiar solo EXE a la instalación (sin sobrescribir `app`, `lib`, `share`, `bin`), y probar. Ante cualquier nueva alerta, detener y no restaurar/excluir. Si la aplicación falla, revisar `%LOCALAPPDATA%\\JavKT9\\JavKT9-launcher-recovery.log`. Mantener PR en borrador, sin publicar actualización.
