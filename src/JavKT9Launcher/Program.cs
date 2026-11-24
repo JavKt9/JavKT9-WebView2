@@ -76,7 +76,20 @@ internal static class Program
                 return 3;
             }
 
+            // Native GTK window belongs to the Perl child process.
+            // Restore DWM caption and installed icon while the app is running.
+            using var appearanceCancel = new CancellationTokenSource();
+            var appearanceTask = Task.Run(() =>
+                WindowAppearance.Monitor(child, Root, appearanceCancel.Token));
+
             child.WaitForExit();
+            appearanceCancel.Cancel();
+            try { appearanceTask.Wait(TimeSpan.FromSeconds(3)); }
+            catch (AggregateException ex)
+            {
+                Log("Appearance task: " + ex.GetBaseException().Message);
+            }
+
             Log("Application process exit code: " + child.ExitCode);
             if (child.ExitCode != 0)
             {
@@ -97,7 +110,7 @@ internal static class Program
         }
     }
 
-    private static void Log(string message)
+    internal static void Log(string message)
     {
         try
         {
