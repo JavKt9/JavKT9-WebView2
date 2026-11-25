@@ -75,6 +75,7 @@ use Gtk3;
     use GCItemsLists::GCTextLists;
     use GCItemsLists::GCImageLists;
     use GCItemsLists::GCLibraryList;
+    use GCJavTitleCleanup qw(clean_alternative_title);
 
     # Pragmas
     use filetest 'access';
@@ -422,6 +423,16 @@ use Gtk3;
         my $info = $plugin->loadUrls($url);
         $self->restoreCursor;
         return if ! $info;
+
+        # 0.9.9.1: limpiar solo el codigo repetido en metadatos de JavLibrary.
+        # No se alteran fichas que ya estan guardadas en el catalogo.
+        if (ref($plugin) =~ /GCPluginJavLibrary/ && ref($info) eq 'HASH'
+            && exists $info->{original})
+        {
+            my $titleField = $self->{model}->{commonFields}->{title} || 'title';
+            $info->{original} = clean_alternative_title(
+                $info->{$titleField}, $info->{original});
+        }
 
         if ($existing)
         {
@@ -1243,6 +1254,16 @@ $@");
                     return;
                 }
             }
+        }
+
+        # 0.9.9.1: el titulo alternativo importado no debe repetir el ID.
+        # Se conserva el dato si no coincide exactamente con el codigo principal.
+        if (ref($plugin) =~ /GCPluginJavLibrary/ && ref($info) eq 'HASH'
+            && exists $info->{original})
+        {
+            my $titleField = $self->{model}->{commonFields}->{title} || 'title';
+            $info->{original} = clean_alternative_title(
+                $info->{$titleField}, $info->{original});
         }
 
         # If we are doing a preview instead of really fetching the data
@@ -3886,8 +3907,12 @@ $@");
         my ($self, $self2) = @_;
 
         $self = $self2 if $self2;
-        # GCJav: manual local propio.
-        my $manual = File::Spec->catfile($ENV{GCS_SHARE_DIR}, '..', '..', 'docs', 'Manual_GCJav.pdf');
+        # JavKT9 0.9.9.1: priorizar el manual HTML actualizado.
+        # Conservar el PDF anterior como respaldo para instalaciones antiguas.
+        my $docs = File::Spec->catdir($ENV{GCS_SHARE_DIR}, '..', '..', 'docs');
+        my $manual = File::Spec->catfile($docs, 'Manual_JavKT9.html');
+        $manual = File::Spec->catfile($docs, 'Manual_GCJav.pdf')
+            unless -f $manual;
         $self->launch($manual, 'file');
     }
 

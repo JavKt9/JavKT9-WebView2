@@ -32,6 +32,16 @@ Esta versión se distribuye como Pre-release mientras se completan las pruebas d
 
 Consultar [planificacion tecnica de 0.9.9](docs/desarrollo-0.9.9.md).
 
+### En preparación: revisión JavKT9 0.9.9.1
+
+La revisión **0.9.9.1** está en desarrollo y **no tiene todavía un instalador publicado**. Incluye ajustes para títulos alternativos, hipervínculos, filas de Cast, portada y visor View Picture, además de la identificación de versión en **Acerca de** y un capítulo de novedades en el manual HTML.
+
+- [Novedades y correcciones de 0.9.9.1](docs/NOVEDADES-0.9.9.1.md)
+- [Manual HTML (con capítulo 17 de la revisión)](app/docs/Manual_JavKT9.html)
+- [Revisión de código en pruebas](https://github.com/JavKt9/JavKT9-WebView2/pull/6)
+
+**Importante:** la versión descargable sigue siendo 0.9.9 hasta finalizar las pruebas en Windows.
+
 ## Codigo y compatibilidad
 
 La aplicacion combina componentes propios con GCstar (Perl/GTK), y mantiene la integracion WebView2 del proyecto. El codigo fuente versionado no reemplaza automaticamente el entorno completo de compilacion o empaquetado de Windows.

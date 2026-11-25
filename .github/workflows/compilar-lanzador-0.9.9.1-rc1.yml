@@ -1,0 +1,99 @@
+name: JavKT9 0.9.9.1 RC1 — compilacion de prueba (sin CMD)
+
+on:
+  push:
+    branches: ["release/0.9.9.1-rc1"]
+    paths:
+      - "src/JavKT9Launcher/**"
+      - ".github/workflows/compilar-lanzador-0.9.9.1-rc1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compilar:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Descargar codigo fuente
+        uses: actions/checkout@v4
+
+      - name: .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Comprobar ausencia de V11/V12 y arranque con perfil
+        shell: pwsh
+        run: |
+          $gc = Get-Content app/lib/gcstar/GCMainWindow.pm -Raw
+          if ($gc.Contains('gcjavStopBridgeOnExit') -or $gc.Contains('_gcjavBridgeRequestOnExit')) {
+            throw 'No publicar: se detecto codigo V11/V12 en la rama RC1.'
+          }
+          $source = Get-Content src/JavKT9Launcher/Program.cs -Raw
+          if (!$source.Contains('JAVKT9_PROFILE_DIR')) {
+            throw 'El lanzador debe conservar el perfil del CMD original.'
+          }
+          if ($source.Contains('cmd.exe') -or $source.Contains('Iniciar-JavKT9.cmd')) {
+            # A comment mentioning the original CMD is okay; a literal shell launch is not.
+            if ($source -match 'ProcessStartInfo\s*\(\s*"cmd' -or $source -match 'FileName\s*=\s*"cmd') {
+              throw 'No se debe ejecutar cmd.exe.'
+            }
+          }
+
+      - name: Preparar logo circular de JavKT9 como icono Windows
+        shell: pwsh
+        run: |
+          # Se parte del arte original versionado en el repositorio.
+          # Para el instalador final se debe usar el ICO aprobado del usuario.
+          python -m pip install --disable-pip-version-check "Pillow==11.3.0"
+          if ($LASTEXITCODE -ne 0) { throw 'No se pudo instalar Pillow' }
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          @'
+          from pathlib import Path
+          from PIL import Image
+          source = Path('app/share/gcstar/Logo_Circular.png')
+          dest = Path('build/JavKT9-Logo-Oficial.ico')
+          if not source.exists():
+              raise SystemExit('Falta arte circular versionado del proyecto')
+          with Image.open(source) as img:
+              img.convert('RGBA').save(
+                  dest, format='ICO',
+                  sizes=[(16,16),(24,24),(32,32),(48,48),
+                         (64,64),(128,128),(256,256)])
+          if not dest.is_file() or dest.stat().st_size < 2048:
+              raise SystemExit('No se pudo crear icono')
+          print('Icono de compilacion generado')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo generacion ICO' }
+
+      - name: Compilar lanzador WinExe desde codigo auditable
+        shell: pwsh
+        run: |
+          dotnet publish src/JavKT9Launcher/JavKT9Launcher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o dist
+          if ($LASTEXITCODE -ne 0) { throw 'Fallo la compilacion del lanzador RC1.' }
+          if (!(Test-Path dist/JavKT9.exe)) { throw 'No existe el ejecutable.' }
+
+      - name: Registrar hash, compilacion sin firma e icono circular
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash dist/JavKT9.exe -Algorithm SHA256).Hash
+          "JavKT9.exe SHA256=$hash" | Set-Content dist/SHA256.txt
+          "VERSION=0.9.9.1 RC1 (SOLO PRUEBA, SIN DISTRIBUIR)" | Set-Content dist/LEEME.txt
+          "NO TIENE FIRMA DIGITAL. El icono visual se genera desde Logo_Circular.png. NO ES UN RELEASE." | Add-Content dist/LEEME.txt
+          "NO desactivar SmartScreen ni Defender. NO reemplazar el ejecutable de una instalacion funcional por esta prueba." | Add-Content dist/LEEME.txt
+          "Incluye solo lanzador, no las dependencias Perl ni el instalador completo." | Add-Content dist/LEEME.txt
+          "Commit: $env:GITHUB_SHA" | Add-Content dist/LEEME.txt
+          Write-Output "SHA256=$hash"
+
+      - name: Guardar artefacto privado de prueba (no release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: JavKT9-0.9.9.1-RC1-lanzador-sin-cmd-PRUEBA
+          path: |
+            dist/JavKT9.exe
+            dist/SHA256.txt
+            dist/LEEME.txt
+          retention-days: 7
+          if-no-files-found: error
